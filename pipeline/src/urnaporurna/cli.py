@@ -10,6 +10,8 @@ import typer
 from urnaporurna import geocode as geocode_mod
 from urnaporurna import ingest as ingest_mod
 from urnaporurna import places as places_mod
+from urnaporurna import reconcile as reconcile_mod
+from urnaporurna import results as results_mod
 from urnaporurna.config import SOURCES
 
 app = typer.Typer(help="Pipeline do Brasil Urna por Urna.", no_args_is_help=True)
@@ -61,6 +63,23 @@ def geocode(
     stats = geocode_mod.run(limit=limit, offline=offline)
     typer.echo(", ".join(f"{k}: {v:,}" for k, v in stats.items()))
     _report_sources(places_mod.finalize())
+
+
+@app.command()
+def results() -> None:
+    """Soma os votos por local de votação e confere com a totalização oficial do TSE."""
+    con = results_mod.run()
+    checks = reconcile_mod.run(con)
+    icons = {"ok": "✓", "falha": "✗", "aguardando": "…"}
+    for c in checks:
+        turno = f"{c.turno}º turno" if c.turno else ""
+        counts = f"{c.comparados:,} comparados, {c.divergentes:,} diferentes"
+        typer.echo(f"  {icons[c.status]} {c.nome} · {turno}: {counts}")
+        if c.detalhe:
+            typer.echo(f"      {c.detalhe}")
+    if any(c.status == "falha" for c in checks):
+        typer.echo("Conferência falhou: os dados não foram aceitos.", err=True)
+        raise typer.Exit(1)
 
 
 def _report_sources(con: duckdb.DuckDBPyConnection) -> None:

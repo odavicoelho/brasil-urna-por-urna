@@ -47,6 +47,23 @@ SOURCES: dict[str, Source] = {
             f"{TSE}/eleitorado_locais_votacao/eleitorado_local_votacao_2026.zip",
             {r"eleitorado_local_votacao_2026_BRASIL\.csv$": "locais"},
         ),
+        # Totalização oficial por município e zona: usada para conferir as somas por seção.
+        Source(
+            "totais_votos",
+            f"{TSE}/votacao_candidato_munzona/votacao_candidato_munzona_2026.zip",
+            {r"votacao_candidato_munzona_2026_BR\.csv$": "totais_votos"},
+        ),
+        Source(
+            "totais_detalhe",
+            f"{TSE}/detalhe_votacao_munzona/detalhe_votacao_munzona_2026.zip",
+            {r"detalhe_votacao_munzona_2026_BR\.csv$": "totais_detalhe"},
+        ),
+        # Só número, nome de urna e partido saem daqui; o arquivo bruto tem dados pessoais e não é publicado.
+        Source(
+            "candidatos",
+            f"{TSE}/consulta_cand/consulta_cand_2026.zip",
+            {r"consulta_cand_2026_BR\.csv$": "candidatos"},
+        ),
         Source(
             "municipios_ibge",
             f"{IBGE_GEO}/malhas_municipais/municipio_2025/Brasil/BR_Municipios_2025.zip",

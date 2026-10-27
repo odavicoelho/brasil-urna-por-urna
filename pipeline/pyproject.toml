@@ -31,6 +31,9 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]  # tabelas de teste em SQL ficam mais legíveis numa linha só
+
 [tool.mypy]
 strict = true
 mypy_path = "src"

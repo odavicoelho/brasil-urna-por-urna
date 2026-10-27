@@ -67,7 +67,12 @@ def load_inputs(con: duckdb.DuckDBPyConnection) -> None:
 
 
 def build_places(con: duckdb.DuckDBPyConnection) -> None:
-    """Agrega as seções em locais e converte as coordenadas (vírgula decimal)."""
+    """Agrega as seções em locais e converte as coordenadas (vírgula decimal).
+
+    Usa o turno mais recente em que o local aparece (alguns locais só existem no 2º turno).
+    Seção agregada: os eleitores dela votam na seção principal, às vezes em outro local; um local só
+    com seções agregadas não teve urna (`secoes_principais = 0`).
+    """
     con.execute(
         """
         CREATE OR REPLACE TABLE places AS
@@ -76,7 +81,7 @@ def build_places(con: duckdb.DuckDBPyConnection) -> None:
                 try_cast(replace(NR_LATITUDE, ',', '.') AS DOUBLE) AS lat_tse,
                 try_cast(replace(NR_LONGITUDE, ',', '.') AS DOUBLE) AS lon_tse
             FROM locais_raw
-            WHERE NR_TURNO = '1'
+            QUALIFY NR_TURNO = max(NR_TURNO) OVER (PARTITION BY CD_MUNICIPIO, NR_ZONA, NR_LOCAL_VOTACAO)
         )
         SELECT
             CD_MUNICIPIO || '-' || NR_ZONA || '-' || NR_LOCAL_VOTACAO AS place_id,
@@ -93,6 +98,7 @@ def build_places(con: duckdb.DuckDBPyConnection) -> None:
             any_value(lat_tse) AS lat_tse,
             any_value(lon_tse) AS lon_tse,
             count(DISTINCT NR_SECAO) AS secoes,
+            count(DISTINCT NR_SECAO) FILTER (DS_TIPO_SECAO_AGREGADA <> 'Agregada') AS secoes_principais,
             sum(QT_ELEITOR_SECAO::INT) AS eleitores
         FROM s
         GROUP BY CD_MUNICIPIO, NR_ZONA, NR_LOCAL_VOTACAO

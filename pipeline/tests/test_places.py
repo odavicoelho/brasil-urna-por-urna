@@ -39,14 +39,14 @@ def con() -> duckdb.DuckDBPyConnection:
         CREATE TABLE locais_raw (NR_TURNO VARCHAR, SG_UF VARCHAR, CD_MUNICIPIO VARCHAR, NM_MUNICIPIO VARCHAR,
             NR_ZONA VARCHAR, NR_LOCAL_VOTACAO VARCHAR, NR_SECAO VARCHAR, NR_LATITUDE VARCHAR,
             NR_LONGITUDE VARCHAR, QT_ELEITOR_SECAO VARCHAR, NM_LOCAL_VOTACAO VARCHAR, DS_TIPO_LOCAL VARCHAR,
-            DS_ENDERECO VARCHAR, NM_BAIRRO VARCHAR, NR_CEP VARCHAR)
+            DS_ENDERECO VARCHAR, NM_BAIRRO VARCHAR, NR_CEP VARCHAR, DS_TIPO_SECAO_AGREGADA VARCHAR)
         """
     )
     for mun, nome, zona, local, secao, lat, lon, n in SECOES:
         for turno in ("1", "2"):
             c.execute(
                 "INSERT INTO locais_raw VALUES"
-                " (?, 'RJ', ?, ?, ?, ?, ?, ?, ?, ?, 'ESCOLA', 'Escola', 'RUA', 'CENTRO', '')",
+                " (?, 'RJ', ?, ?, ?, ?, ?, ?, ?, ?, 'ESCOLA', 'Escola', 'RUA', 'CENTRO', '', 'Principal')",
                 [turno, mun, nome, zona, local, secao, lat, lon, n],
             )
     places.build_places(c)
@@ -59,8 +59,10 @@ def status(con: duckdb.DuckDBPyConnection) -> dict[str, str]:
 
 
 def test_sections_become_one_place_per_school(con: duckdb.DuckDBPyConnection) -> None:
-    row = con.execute("SELECT secoes, eleitores FROM places WHERE place_id = '10001-1-100'").fetchone()
-    assert row == (2, 500)  # só o 1º turno conta, sem duplicar
+    row = con.execute(
+        "SELECT secoes, secoes_principais, eleitores FROM places WHERE place_id = '10001-1-100'"
+    ).fetchone()
+    assert row == (2, 2, 500)  # um turno só (o mais recente), sem duplicar
 
 
 def test_geo_status(con: duckdb.DuckDBPyConnection) -> None:
