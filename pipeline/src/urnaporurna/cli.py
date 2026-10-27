@@ -9,6 +9,7 @@ import typer
 
 from urnaporurna import geocode as geocode_mod
 from urnaporurna import ingest as ingest_mod
+from urnaporurna import neighborhood as neighborhood_mod
 from urnaporurna import places as places_mod
 from urnaporurna import reconcile as reconcile_mod
 from urnaporurna import results as results_mod
@@ -79,6 +80,23 @@ def results() -> None:
             typer.echo(f"      {c.detalhe}")
     if any(c.status == "falha" for c in checks):
         typer.echo("Conferência falhou: os dados não foram aceitos.", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def entorno() -> None:
+    """Monta o perfil do entorno (Censo 2022, raio de 500 m) de cada local de votação."""
+    con = neighborhood_mod.run()
+    for metodo, n in con.execute(
+        "SELECT metodo_entorno, count(*) FROM entorno GROUP BY 1 ORDER BY 2 DESC"
+    ).fetchall():
+        typer.echo(f"  {metodo}: {n:,} locais")
+    failed = False
+    for desc, ok, detail in neighborhood_mod.checks(con):
+        typer.echo(f"  {'✓' if ok else '✗'} {desc}: {detail}")
+        failed |= not ok
+    if failed:
+        typer.echo("Conferência falhou: o perfil do entorno não foi aceito.", err=True)
         raise typer.Exit(1)
 
 

@@ -18,6 +18,8 @@ USER_AGENT = "brasil-urna-por-urna/0.1 (+https://github.com/odavicoelho/brasil-u
 
 TSE = "https://cdn.tse.jus.br/estatistica/sead/odsele"
 IBGE_GEO = "https://geoftp.ibge.gov.br/organizacao_do_territorio/malhas_territoriais"
+CENSO = "https://ftp.ibge.gov.br/Censos/Censo_Demografico_2022"
+CENSO_SETOR = f"{CENSO}/Agregados_por_Setores_Censitarios/Agregados_por_Setor_csv"
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,8 @@ class Source:
     url: str
     # CSV dentro do zip (regex) -> nome da tabela bronze. Vazio para arquivos lidos direto (ex.: shapefile).
     members: dict[str, str]
+    # TSE usa Latin-1; o IBGE usa Windows-1252 (aspas e travessões que o Latin-1 não tem).
+    encoding: str = "latin-1"
 
 
 SOURCES: dict[str, Source] = {
@@ -68,6 +72,44 @@ SOURCES: dict[str, Source] = {
             "municipios_ibge",
             f"{IBGE_GEO}/malhas_municipais/municipio_2025/Brasil/BR_Municipios_2025.zip",
             {},
+        ),
+        # Censo 2022 por setor censitário: a malha (polígonos) e as tabelas usadas no perfil do entorno.
+        Source(
+            "setores_ibge",
+            f"{IBGE_GEO}/malhas_de_setores_censitarios__divisoes_intramunicipais/censo_2022/setores/gpkg/BR/"
+            "BR_setores_CD2022.gpkg",
+            {},
+        ),
+        Source(
+            "censo_basico",
+            f"{CENSO_SETOR}/Agregados_por_setores_basico_BR_20260520.zip",
+            {r"\.csv$": "censo_basico"},
+            encoding="cp1252",
+        ),
+        Source(
+            "censo_demografia",
+            f"{CENSO_SETOR}/Agregados_por_setores_demografia_BR.zip",
+            {r"\.csv$": "censo_demografia"},
+            encoding="cp1252",
+        ),
+        Source(
+            "censo_alfabetizacao",
+            f"{CENSO_SETOR}/Agregados_por_setores_alfabetizacao_BR.zip",
+            {r"\.csv$": "censo_alfabetizacao"},
+            encoding="cp1252",
+        ),
+        Source(
+            "censo_cor_raca",
+            f"{CENSO_SETOR}/Agregados_por_setores_cor_ou_raca_BR.zip",
+            {r"\.csv$": "censo_cor_raca"},
+            encoding="cp1252",
+        ),
+        Source(
+            "censo_renda",
+            f"{CENSO}/Agregados_por_Setores_Censitarios_Rendimento_do_Responsavel/"
+            "Agregados_por_setores_renda_responsavel_BR_20260508_csv.zip",
+            {r"\.csv$": "censo_renda"},
+            encoding="cp1252",
         ),
     ]
 }

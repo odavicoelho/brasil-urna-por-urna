@@ -7,6 +7,7 @@ Last-Modified do servidor), para que qualquer pessoa confira que usamos os mesmo
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import re
 import shutil
@@ -14,7 +15,7 @@ import tempfile
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 import duckdb
 import httpx
@@ -70,14 +71,14 @@ def download(source: Source, force: bool = False) -> Path:
     return dest
 
 
-def csv_to_parquet(csv: Path, parquet: Path) -> int:
-    """Converte um CSV do TSE (Latin-1, separador ';') em Parquet, mantendo tudo como texto."""
+def csv_to_parquet(csv: Path, parquet: Path, encoding: str = "latin-1") -> int:
+    """Converte um CSV (separador ';') em Parquet, mantendo tudo como texto."""
     parquet.parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
     con.execute(
         f"""
         COPY (
-            SELECT * FROM read_csv('{csv}', delim=';', quote='"', encoding='latin-1',
+            SELECT * FROM read_csv('{csv}', delim=';', quote='"', encoding='{encoding}',
                                    header=true, all_varchar=true)
         ) TO '{parquet}' (FORMAT parquet, COMPRESSION zstd)
         """
@@ -87,9 +88,25 @@ def csv_to_parquet(csv: Path, parquet: Path) -> int:
     return int(row[0]) if row else 0
 
 
+def extract(src: IO[bytes], dest: Path, encoding: str) -> str:
+    """Copia o CSV do zip. O DuckDB só lê UTF-8 e Latin-1: outras codificações viram UTF-8 aqui."""
+    if encoding in ("latin-1", "utf-8"):
+        with dest.open("wb") as dst:
+            shutil.copyfileobj(src, dst, CHUNK)
+        return encoding
+    with (
+        io.TextIOWrapper(src, encoding=encoding, newline="") as text,
+        dest.open("w", encoding="utf-8", newline="") as dst,
+    ):
+        shutil.copyfileobj(text, dst, CHUNK)
+    return "utf-8"
+
+
 def to_bronze(source: Source, archive: Path) -> dict[str, int]:
     """Extrai os CSVs escolhidos do zip e grava cada um como Parquet em data/bronze/."""
     rows: dict[str, int] = {}
+    if not source.members:  # arquivo lido direto (shapefile, GeoPackage)
+        return rows
     with zipfile.ZipFile(archive) as z:
         names = z.namelist()
         for pattern, table in source.members.items():
@@ -98,7 +115,7 @@ def to_bronze(source: Source, archive: Path) -> dict[str, int]:
                 raise ValueError(f"{source.name}: esperava 1 arquivo para {pattern!r}, achei {matches}")
             with tempfile.TemporaryDirectory(dir=RAW) as tmp:
                 csv = Path(tmp) / Path(matches[0]).name
-                with z.open(matches[0]) as src, csv.open("wb") as dst:
-                    shutil.copyfileobj(src, dst, CHUNK)
-                rows[table] = csv_to_parquet(csv, BRONZE / f"{table}.parquet")
+                with z.open(matches[0]) as src:
+                    encoding = extract(src, csv, source.encoding)
+                rows[table] = csv_to_parquet(csv, BRONZE / f"{table}.parquet", encoding)
     return rows
