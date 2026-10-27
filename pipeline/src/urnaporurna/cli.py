@@ -55,9 +55,10 @@ def places() -> None:
 @app.command()
 def geocode(
     limit: Annotated[int | None, typer.Option(help="Processa só os primeiros N locais (teste).")] = None,
+    offline: Annotated[bool, typer.Option(help="Usa só o cache, sem requisições novas.")] = False,
 ) -> None:
     """Geocodifica os locais sem coordenada confiável (Nominatim, 1 req/s, com cache)."""
-    stats = geocode_mod.run(limit=limit)
+    stats = geocode_mod.run(limit=limit, offline=offline)
     typer.echo(", ".join(f"{k}: {v:,}" for k, v in stats.items()))
     _report_sources(places_mod.finalize())
 
@@ -65,10 +66,12 @@ def geocode(
 def _report_sources(con: duckdb.DuckDBPyConnection) -> None:
     typer.echo("Fonte da coordenada final:")
     for fonte, n, voters in con.execute(
-        "SELECT geo_fonte || coalesce(' · ' || geo_consulta, ''), count(*), sum(eleitores)::BIGINT"
+        "SELECT coalesce(geo_fonte || coalesce(' · ' || geo_consulta, ''),"
+        " CASE geo_status WHEN 'exterior' THEN 'exterior (lista à parte)' ELSE 'sem ponto no mapa' END),"
+        " count(*), sum(eleitores)::BIGINT"
         " FROM locais GROUP BY 1 ORDER BY 2 DESC"
     ).fetchall():
-        typer.echo(f"  {fonte or 'exterior':<28} {n:>7,} locais  {voters:>12,} eleitores")
+        typer.echo(f"  {fonte:<28} {n:>7,} locais  {voters:>12,} eleitores")
     row = con.execute(
         "SELECT count(*), sum(eleitores)::BIGINT FROM locais WHERE geo_precisao = 'aproximada'"
     ).fetchone()

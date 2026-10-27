@@ -54,3 +54,13 @@ def test_resolve_gives_up_when_nothing_fits(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(geocode, "inside", lambda *_: False)
     api = FakeApi({"cep": {"lat": -22.0, "lon": -42.0}})
     assert geocode.resolve(None, api, PLACE) is None  # type: ignore[arg-type]
+
+
+def test_offline_uses_only_the_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(geocode, "GEOCODE_CACHE", tmp_path / "cache.jsonl")
+    cache = geocode.Cache()
+    cache.put({"q": "a"}, {"lat": 1.0, "lon": 2.0, "label": "A"})
+    api = geocode.Nominatim(cache, offline=True)
+    assert api.search({"q": "a"}) == {"lat": 1.0, "lon": 2.0, "label": "A"}
+    assert api.search({"q": "nunca perguntado"}) is None
+    assert api.requests == 0

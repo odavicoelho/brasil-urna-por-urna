@@ -4,7 +4,7 @@ Regras de uso do Nominatim: no máximo 1 requisição por segundo, User-Agent id
 resultados em cache (cada consulta é feita uma vez só). Dados © colaboradores do OpenStreetMap (ODbL).
 
 Uma resposta só é aceita se o ponto cair dentro do município certo. Se nenhuma consulta passar,
-o local fica no centro do município (um ponto dentro do polígono) e é marcado como aproximado.
+o local fica sem ponto no mapa; os votos dele continuam contando nos totais.
 """
 
 from __future__ import annotations
@@ -84,8 +84,9 @@ class Cache:
 
 
 class Nominatim:
-    def __init__(self, cache: Cache) -> None:
+    def __init__(self, cache: Cache, offline: bool = False) -> None:
         self.cache = cache
+        self.offline = offline  # só usa o cache, sem requisições novas
         self.client = httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=30)
         self.last = 0.0
         self.requests = 0
@@ -95,6 +96,8 @@ class Nominatim:
         if hit is not None:
             result: dict[str, Any] | None = hit["result"]
             return result
+        if self.offline:
+            return None
         wait = MIN_INTERVAL - (time.monotonic() - self.last)
         if wait > 0:
             time.sleep(wait)
@@ -150,10 +153,10 @@ def resolve(con: duckdb.DuckDBPyConnection, api: Nominatim, p: Place) -> tuple[s
     return None
 
 
-def run(limit: int | None = None, progress: bool = True) -> dict[str, int]:
+def run(limit: int | None = None, offline: bool = False, progress: bool = True) -> dict[str, int]:
     """Geocodifica os candidatos e grava data/silver/geocodificados.parquet."""
     con = open_con()
-    api = Nominatim(Cache())
+    api = Nominatim(Cache(), offline=offline)
     places = candidates(con)[:limit]
     rows: list[tuple[str, str, float, float]] = []
     for i, p in enumerate(places, 1):

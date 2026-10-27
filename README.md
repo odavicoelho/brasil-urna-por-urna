@@ -20,7 +20,10 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/urna ingest    # baixa as fontes (≈ 650 MB) e converte para Parquet
 .venv/bin/urna places    # monta os locais de votação e confere as coordenadas
 .venv/bin/urna geocode   # localiza os que ficaram sem coordenada confiável (1 req/s, com cache)
+                         # --offline usa só o cache, sem requisições novas
 ```
+
+Cerca de 1.500 locais (0,5% do eleitorado) não aparecem no mapa porque a coordenada publicada pelo TSE está vazia ou errada e não foi possível localizá-los com segurança. Os votos deles continuam contando nos totais.
 
 Cada arquivo baixado fica registrado em `data/manifest.json` (URL, tamanho, SHA-256 e data), para qualquer pessoa conferir que usou os mesmos dados.
 

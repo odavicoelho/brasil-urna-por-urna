@@ -226,9 +226,10 @@ def run() -> duckdb.DuckDBPyConnection:
 def finalize(con: duckdb.DuckDBPyConnection | None = None) -> duckdb.DuckDBPyConnection:
     """Grava data/silver/locais.parquet com a coordenada final e a fonte de cada uma.
 
-    `geo_fonte`: `tse` (coordenada original), `geocodificado` (Nominatim, dentro do município certo),
-    `centro_municipio` (último recurso, ponto dentro do município) ou nulo (exterior).
-    `geo_precisao`: `exata` ou `aproximada` (CEP ou centro do município).
+    `geo_fonte`: `tse` (coordenada original), `geocodificado` (Nominatim, dentro do município certo)
+    ou nulo (exterior, ou coordenada do TSE inválida sem localização confiável: fica fora do mapa,
+    mas os votos continuam nos totais).
+    `geo_precisao`: `exata` ou `aproximada` (resposta pelo CEP, que pode cobrir a cidade inteira).
     """
     if con is None:
         con = connect()
@@ -239,24 +240,17 @@ def finalize(con: duckdb.DuckDBPyConnection | None = None) -> duckdb.DuckDBPyCon
     con.execute(
         f"""
         CREATE OR REPLACE TABLE locais AS
-        WITH c AS (
-            SELECT cd_ibge, ST_PointOnSurface(geom) AS pt FROM mun_ibge
-        )
         SELECT b.*,
             CASE WHEN b.geo_status IN ('ok', 'borda') THEN 'tse'
-                 WHEN g.place_id IS NOT NULL THEN 'geocodificado'
-                 WHEN b.geo_status <> 'exterior' THEN 'centro_municipio' END AS geo_fonte,
+                 WHEN g.place_id IS NOT NULL THEN 'geocodificado' END AS geo_fonte,
             g.consulta AS geo_consulta,
             -- CEP de cidade pequena costuma cobrir o município inteiro: conta como aproximado.
             CASE WHEN geo_fonte = 'tse' OR g.consulta IN ('endereco', 'nome') THEN 'exata'
                  WHEN geo_fonte IS NOT NULL THEN 'aproximada' END AS geo_precisao,
-            CASE geo_fonte WHEN 'tse' THEN b.lat_tse WHEN 'geocodificado' THEN g.lat
-                           WHEN 'centro_municipio' THEN ST_Y(c.pt) END AS lat,
-            CASE geo_fonte WHEN 'tse' THEN b.lon_tse WHEN 'geocodificado' THEN g.lon
-                           WHEN 'centro_municipio' THEN ST_X(c.pt) END AS lon
+            CASE geo_fonte WHEN 'tse' THEN b.lat_tse WHEN 'geocodificado' THEN g.lat END AS lat,
+            CASE geo_fonte WHEN 'tse' THEN b.lon_tse WHEN 'geocodificado' THEN g.lon END AS lon
         FROM '{SILVER / "locais_base.parquet"}' b
         LEFT JOIN {geo_src} g USING (place_id)
-        LEFT JOIN c USING (cd_ibge)
         """
     )
     con.execute(
