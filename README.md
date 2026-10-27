@@ -2,7 +2,18 @@
 
 O resultado da eleição presidencial de 2026, nos dois turnos, em cada um dos ~95 mil locais de votação do país, com o perfil do entorno de cada local segundo o Censo 2022 do IBGE.
 
-> Em construção. Hoje o repositório tem o pipeline de dados: baixar os dados públicos, montar os locais de votação com coordenadas conferidas, somar os votos de cada local (conferindo tudo com a totalização oficial do TSE) e montar o perfil do entorno de cada local com o Censo 2022.
+> Em construção. Já tem o pipeline de dados completo e o mapa: 92.840 locais de votação, com o resultado dos dois turnos e o perfil do entorno de cada um. Site: https://odavicoelho.github.io/brasil-urna-por-urna/
+
+## O que o mapa mostra
+
+- **2º turno:** a vantagem de cada candidato em cada local de votação;
+- **1º turno:** quem foi o mais votado em cada local;
+- **Variação:** quem mais cresceu do 1º para o 2º turno;
+- **Comparecimento** e **brancos e nulos** no 2º turno;
+- **clique num local** para ver o resultado completo dos dois turnos e o perfil do entorno (Censo 2022);
+- **busca** por nome do local, bairro ou município.
+
+As cores dos dois candidatos do 2º turno são neutras (roxo e verde, nenhuma é cor de partido).
 
 ## De onde vêm os dados
 
@@ -23,7 +34,19 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
                          # --offline usa só o cache, sem requisições novas
 .venv/bin/urna results   # soma os votos por local e confere com a totalização oficial
 .venv/bin/urna entorno   # perfil do entorno de cada local (Censo 2022, raio de 500 m)
+.venv/bin/urna publish   # arquivos de dados do site em web/public/dados/
 ```
+
+O site (Vite + TypeScript + MapLibre, mapa de fundo do OpenFreeMap) fica em `web/`:
+
+```bash
+cd web
+npm ci
+npm run dev                      # http://localhost:5173/brasil-urna-por-urna/
+../scripts/publicar-site.sh      # build + publicação no branch gh-pages (GitHub Pages)
+```
+
+Os dados do site (~100 MB, um arquivo por município) não vão para o `main`: ficam só no branch `gh-pages`, trocado inteiro a cada publicação.
 
 ## Conferência
 

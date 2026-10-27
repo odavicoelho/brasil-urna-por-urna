@@ -1,0 +1,22 @@
+{
+  "name": "brasil-urna-por-urna",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "copiar-worker": "node -e \"require('fs').mkdirSync('public/maplibre',{recursive:true});require('fs').copyFileSync('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs','public/maplibre/maplibre-gl-worker.mjs')\"",
+    "predev": "npm run copiar-worker",
+    "dev": "vite",
+    "prebuild": "npm run copiar-worker",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "maplibre-gl": "^6.16.0"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.16",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}

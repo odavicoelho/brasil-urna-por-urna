@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brasil Urna por Urna · Eleição presidencial 2026</title>
+    <meta
+      name="description"
+      content="O resultado da eleição presidencial de 2026, nos dois turnos, em cada local de votação do Brasil, com o perfil do entorno segundo o Censo 2022."
+    />
+  </head>
+  <body>
+    <div id="mapa" aria-label="Mapa dos locais de votação"></div>
+
+    <aside id="controles" class="cartao">
+      <header>
+        <h1>Brasil Urna por Urna</h1>
+        <p class="sub">Eleição presidencial 2026 · o resultado em cada local de votação</p>
+      </header>
+      <div id="busca">
+        <input id="busca-campo" type="search" placeholder="Buscar local, bairro ou município" autocomplete="off" />
+        <ul id="busca-resultados" hidden></ul>
+      </div>
+      <nav id="camadas" aria-label="O que o mapa mostra"></nav>
+      <div id="legenda"></div>
+      <p id="carregando">Carregando os locais de votação…</p>
+    </aside>
+
+    <aside id="painel" class="cartao" hidden>
+      <button id="painel-fechar" aria-label="Fechar">×</button>
+      <div id="painel-conteudo"></div>
+    </aside>
+
+    <footer id="rodape">
+      Dados: TSE (resultados e locais) · IBGE (Censo 2022) · © OpenStreetMap · OpenFreeMap
+    </footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
