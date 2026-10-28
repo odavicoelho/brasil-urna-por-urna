@@ -324,7 +324,25 @@ export function ativarCarrossel(caixa: HTMLElement): void {
 // Links públicos de compartilhar de cada rede: abrem a rede com o texto e o link preenchidos, e a pessoa
 // confirma lá. Nenhuma API, conta ou chave. (O Instagram não tem esse link: entra pelo "Mais", que abre o
 // menu de compartilhar do celular.)
-const REDES: { id: string; nome: string; cor: string; link: (texto: string, url: string) => string }[] = [
+// Logos simplificadas, desenhadas aqui (nada baixado de fora). Preenchidas com a cor do texto (branco).
+const LOGO = {
+  x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M4 4h4.6l11.4 16h-4.6Z"/><path d="M19.2 4.2 4.8 19.8" stroke-width="2.1"/></svg>',
+  whatsapp:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2a8.8 8.8 0 0 0-7.6 13.3L3.2 20.8l4.4-1.2A8.8 8.8 0 1 0 12 3.2Z" stroke-width="1.9"/><path fill="currentColor" stroke="none" d="M8.6 7.6c.3-.3.8-.3 1 0l1.1 1.6c.2.3.2.7 0 1l-.6.7a6 6 0 0 0 3 3l.7-.6c.3-.2.7-.2 1 0l1.6 1.1c.3.2.3.7 0 1l-.8.8c-.6.6-1.6.7-2.4.3a10.5 10.5 0 0 1-4.7-4.7c-.4-.8-.3-1.8.3-2.4Z"/></svg>',
+  facebook:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M13.6 21v-7.3h2.5l.4-3h-2.9V8.9c0-.9.3-1.5 1.5-1.5h1.5V4.7c-.3 0-1.2-.1-2.2-.1-2.2 0-3.8 1.4-3.8 3.9v2.2H8.1v3h2.5V21Z"/></svg>',
+  linkedin:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.3" cy="6.4" r="1.9" fill="currentColor" stroke="none"/><path fill="currentColor" stroke="none" d="M4.7 9.4h3.2V19H4.7ZM10 9.4h3v1.3c.5-.8 1.5-1.6 3.1-1.6 3 0 3.6 2 3.6 4.5V19h-3.2v-4.8c0-1.1 0-2.6-1.6-2.6s-1.8 1.2-1.8 2.5V19H10Z"/></svg>',
+  telegram:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M20.6 4.2 3.4 10.9c-.9.4-.9 1.4 0 1.7l4.3 1.4 1.6 5c.2.7 1 .9 1.5.4l2.4-2.2 4.4 3.3c.6.4 1.4.1 1.6-.6l2.8-13.6c.2-1-.7-1.7-1.4-1.3Zm-3.5 4.1-7 6.4-.3 3-1.3-4 8.3-5.2c.3-.2.5.1.3.3Z"/></svg>',
+  copiar:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+};
+
+// Links públicos de compartilhar de cada rede: abrem a rede com o texto e o link preenchidos, e a pessoa
+// confirma lá. Nenhuma API, conta ou chave. (O Instagram não tem esse link: entra pelo "Mais", que abre o
+// menu de compartilhar do celular.)
+const REDES: { id: keyof typeof LOGO; nome: string; cor: string; link: (texto: string, url: string) => string }[] = [
   { id: "x", nome: "X", cor: "#000000", link: (t, u) => `https://x.com/intent/tweet?text=${encodeURIComponent(t)}&url=${encodeURIComponent(u)}` },
   { id: "whatsapp", nome: "WhatsApp", cor: "#25d366", link: (t, u) => `https://wa.me/?text=${encodeURIComponent(`${t} ${u}`)}` },
   { id: "facebook", nome: "Facebook", cor: "#1877f2", link: (_t, u) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}` },
@@ -367,11 +385,18 @@ export function setupDescobertas(
             <div class="redes-botoes">
               ${REDES.map((r) => {
                 const url = `${enderecoPublico()}#/descobertas/${c.id}`;
-                return `<a class="rede" href="${r.link(c.compartilhar, url)}" target="_blank" rel="noopener"
-                  style="--rede:${r.cor}" aria-label="Compartilhar no ${r.nome}">${r.nome}</a>`;
+                return `<a class="rede" href="${r.link(c.compartilhar, url)}" target="_blank" rel="noopener noreferrer"
+                  data-rede="${r.id}" aria-label="Compartilhar no ${r.nome}">
+                  <span class="rede-icone" style="background:${r.cor}">${LOGO[r.id]}</span><span class="rede-nome">${r.nome}</span></a>`;
               }).join("")}
-              <button class="rede neutra" type="button" data-copiar="${c.id}">Copiar link</button>
-              ${"share" in navigator ? `<button class="rede neutra" type="button" data-compartilhar="${c.id}">${ICONE.compartilhar} Mais</button>` : ""}
+              <button class="rede" type="button" data-copiar="${c.id}">
+                <span class="rede-icone neutra">${LOGO.copiar}</span><span class="rede-nome">Copiar</span></button>
+              ${
+                "share" in navigator
+                  ? `<button class="rede" type="button" data-compartilhar="${c.id}">
+                      <span class="rede-icone neutra">${ICONE.compartilhar}</span><span class="rede-nome">Mais</span></button>`
+                  : ""
+              }
             </div>
           </div>
         </article>`,
@@ -381,6 +406,13 @@ export function setupDescobertas(
         recalculados a cada atualização dos dados.</p>`;
     el.addEventListener("click", (ev) => {
       const t = ev.target as HTMLElement;
+      // Redes sempre numa aba nova: o site continua aberto onde estava.
+      const rede = t.closest<HTMLAnchorElement>("a[data-rede]");
+      if (rede) {
+        ev.preventDefault();
+        window.open(rede.href, "_blank", "noopener,noreferrer");
+        return;
+      }
       const ir = t.closest<HTMLElement>("[data-ir]");
       if (ir) return ctx.irPara(lista.find((c) => c.id === ir.dataset.ir)!.acao.acao);
       const comp = t.closest<HTMLElement>("[data-compartilhar], [data-copiar]");

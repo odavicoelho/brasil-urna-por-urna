@@ -984,39 +984,70 @@ details[open] > summary + * {
 
 .redes-botoes {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
+  margin: 0 -16px;
+  padding: 0 16px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
+.redes-botoes::-webkit-scrollbar {
+  display: none;
+}
+
+.redes-botoes .rede {
+  flex: none;
+  width: 54px;
+}
+
+/* Como o menu de compartilhar do iPhone: círculo com a logo e o nome embaixo */
 .rede {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 5px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: var(--rede);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
+  color: var(--rotulo);
   text-decoration: none;
-  transition: transform 0.18s var(--curva), opacity 0.18s;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.rede:active {
-  transform: scale(0.95);
-  opacity: 0.85;
+.rede-icone {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  transition: transform 0.18s var(--curva), filter 0.18s;
 }
 
-.rede.neutra {
+.rede-icone.neutra {
   background: var(--preenchimento);
   color: var(--rotulo);
 }
 
-.rede svg {
-  width: 15px;
-  height: 15px;
-  stroke-width: 2.2;
+.rede-icone svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2;
+}
+
+.rede:active .rede-icone {
+  transform: scale(0.9);
+}
+
+@media (hover: hover) {
+  .rede:hover .rede-icone {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
+}
+
+.rede-nome {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rotulo-2);
+  white-space: nowrap;
 }
 
 .secundario-botao {
