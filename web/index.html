@@ -2,38 +2,106 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Brasil Urna por Urna · Eleição presidencial 2026</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Brasil Urna por Urna · O resultado da eleição em cada local de votação</title>
     <meta
       name="description"
-      content="O resultado da eleição presidencial de 2026, nos dois turnos, em cada local de votação do Brasil, com o perfil do entorno segundo o Censo 2022."
+      content="Como votou a sua escola? O 2º turno da eleição presidencial de 2026 em cada um dos 92 mil locais de votação do Brasil, com a renda e o perfil do entorno pelo Censo 2022."
     />
+    <link rel="canonical" href="https://odavicoelho.github.io/brasil-urna-por-urna/" />
+    <link rel="icon" href="icone.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icone-180.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Brasil Urna por Urna" />
+    <meta property="og:title" content="Como votou a sua escola? A eleição de 2026, local por local" />
+    <meta
+      property="og:description"
+      content="O 2º turno em cada um dos 92 mil locais de votação do Brasil, com a renda do entorno pelo Censo 2022."
+    />
+    <meta property="og:url" content="https://odavicoelho.github.io/brasil-urna-por-urna/" />
+    <meta property="og:image" content="https://odavicoelho.github.io/brasil-urna-por-urna/compartilhar.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Mapa do Brasil com os locais de votação coloridos pelo resultado do 2º turno" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- O mínimo para pintar o mapa: começa a baixar antes do JavaScript rodar. -->
+    <link rel="preload" href="dados/pontos.bin" as="fetch" crossorigin />
+    <link rel="preload" href="dados/meta.json" as="fetch" crossorigin />
+    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
   </head>
   <body>
-    <div id="mapa" aria-label="Mapa dos locais de votação"></div>
+    <div id="mapa" role="application" aria-label="Mapa dos locais de votação"></div>
 
-    <aside id="controles" class="cartao">
-      <header>
-        <h1>Brasil Urna por Urna</h1>
-        <p class="sub">Eleição presidencial 2026 · o resultado em cada local de votação</p>
+    <div id="lateral">
+      <header id="topo">
+        <button id="abrir-busca" class="busca-pilula" type="button">
+          <img src="icone.svg" alt="" width="28" height="28" />
+          <span>Buscar escola, bairro ou cidade</span>
+          <svg class="lupa" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
+        </button>
+        <nav id="camadas" class="chips" aria-label="O que o mapa mostra"></nav>
       </header>
-      <div id="busca">
-        <input id="busca-campo" type="search" placeholder="Buscar local, bairro ou município" autocomplete="off" />
-        <ul id="busca-resultados" hidden></ul>
+
+      <section id="resumo" class="cartao" aria-live="polite">
+        <div class="marca">
+          <strong>Brasil Urna por Urna</strong>
+          <span>Eleição presidencial 2026</span>
+        </div>
+        <div id="legenda"></div>
+        <p id="carregando"><span class="girando" aria-hidden="true"></span> Carregando os locais de votação…</p>
+      </section>
+    </div>
+
+    <button id="perto" class="botao-redondo" type="button" aria-label="Ir para perto de mim" title="Perto de mim">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="8" /></svg>
+    </button>
+
+    <section id="folha" class="cartao" hidden aria-label="Local de votação">
+      <div id="folha-alca" aria-hidden="true"><span></span></div>
+      <button id="folha-fechar" class="fechar" type="button" aria-label="Fechar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+      </button>
+      <div id="folha-conteudo"></div>
+    </section>
+
+    <div id="busca" class="tela" hidden role="dialog" aria-label="Buscar">
+      <div class="busca-barra">
+        <button id="busca-voltar" class="voltar" type="button" aria-label="Voltar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <input id="busca-campo" type="search" enterkeyhint="search" placeholder="Escola, bairro ou cidade" autocomplete="off" />
       </div>
-      <nav id="camadas" aria-label="O que o mapa mostra"></nav>
-      <div id="legenda"></div>
-      <p id="carregando">Carregando os locais de votação…</p>
-    </aside>
+      <button id="busca-perto" class="linha-acao" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="8" /></svg>
+        Locais perto de mim
+      </button>
+      <ul id="busca-resultados"></ul>
+    </div>
 
-    <aside id="painel" class="cartao" hidden>
-      <button id="painel-fechar" aria-label="Fechar">×</button>
-      <div id="painel-conteudo"></div>
-    </aside>
+    <main id="pagina-renda" class="pagina" hidden></main>
+    <main id="pagina-sobre" class="pagina" hidden></main>
 
-    <footer id="rodape">
-      Dados: TSE (resultados e locais) · IBGE (Censo 2022) · © OpenStreetMap · OpenFreeMap
-    </footer>
+    <nav id="abas" aria-label="Seções">
+      <a href="#/" data-aba="mapa">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" /><path d="M9 4v14M15 6v14" /></svg>
+        Mapa
+      </a>
+      <a href="#/renda" data-aba="renda">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h16" /><path d="M8 16v-3M12 16V9M16 16v-6M20 16V6" /></svg>
+        Renda e voto
+      </a>
+      <a href="#/sobre" data-aba="sobre">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
+        Como foi feito
+      </a>
+    </nav>
+
+    <div id="aviso" role="status" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

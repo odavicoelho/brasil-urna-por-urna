@@ -2,16 +2,19 @@
 
 O resultado da eleição presidencial de 2026, nos dois turnos, em cada um dos ~95 mil locais de votação do país, com o perfil do entorno de cada local segundo o Censo 2022 do IBGE.
 
-> Em construção. Já tem o pipeline de dados completo e o mapa: 92.840 locais de votação, com o resultado dos dois turnos e o perfil do entorno de cada um. Site: https://odavicoelho.github.io/brasil-urna-por-urna/
+Site: https://odavicoelho.github.io/brasil-urna-por-urna/
 
 ## O que o mapa mostra
 
 - **2º turno:** a vantagem de cada candidato em cada local de votação;
 - **1º turno:** quem foi o mais votado em cada local;
-- **Variação:** quem mais cresceu do 1º para o 2º turno;
+- **Quem cresceu:** quem mais ganhou votos do 1º para o 2º turno;
+- **Renda do entorno:** a renda média do responsável pelo domicílio num raio de 500 m (Censo 2022);
 - **Comparecimento** e **brancos e nulos** no 2º turno;
-- **clique num local** para ver o resultado completo dos dois turnos e o perfil do entorno (Censo 2022);
-- **busca** por nome do local, bairro ou município.
+- **toque num local** para ver o resultado, comparado com o município e o Brasil, e o perfil do entorno; cada local tem o seu link para compartilhar;
+- **busca** por escola, bairro ou cidade, e um botão para ir direto aos locais perto de você.
+
+A página **Renda e voto** divide o eleitorado em cinco faixas pela renda do entorno e mostra o 2º turno em cada uma (somas exatas de votos), além de um gráfico com todos os locais. A página **Como foi feito** traz a conferência com os totais oficiais e os votos no exterior.
 
 As cores dos dois candidatos do 2º turno são neutras (roxo e verde, nenhuma é cor de partido).
 
@@ -46,7 +49,9 @@ npm run dev                      # http://localhost:5173/brasil-urna-por-urna/
 ../scripts/publicar-site.sh      # build + publicação no branch gh-pages (GitHub Pages)
 ```
 
-Os dados do site (~100 MB, um arquivo por município) não vão para o `main`: ficam só no branch `gh-pages`, trocado inteiro a cada publicação.
+O site foi feito para abrir rápido no celular: o mapa pinta com um arquivo binário de ~450 KB (posição e 2º turno de cada local), o resto das camadas chega logo depois em outro de ~800 KB, e o detalhe de cada local só é baixado quando alguém toca nele (no máximo ~40 KB; as cidades grandes são divididas por zona eleitoral). O formato está descrito em `pipeline/src/urnaporurna/publish.py`.
+
+Os dados do site (~80 MB no total) não vão para o `main`: ficam só no branch `gh-pages`, trocado inteiro a cada publicação.
 
 ## Conferência
 
