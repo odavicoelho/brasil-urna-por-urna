@@ -962,6 +962,63 @@ details[open] > summary + * {
   font-size: 16px;
 }
 
+.descoberta > .botao-grande {
+  height: 46px;
+  margin-top: 14px;
+  font-size: 16px;
+}
+
+.redes {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--separador);
+}
+
+.redes-titulo {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rotulo-2);
+}
+
+.redes-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rede {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--rede);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.18s var(--curva), opacity 0.18s;
+}
+
+.rede:active {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+.rede.neutra {
+  background: var(--preenchimento);
+  color: var(--rotulo);
+}
+
+.rede svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.2;
+}
+
 .secundario-botao {
   flex: none !important;
   width: 46px;

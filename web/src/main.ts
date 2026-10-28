@@ -498,6 +498,11 @@ async function iniciar() {
     meta,
     irPara: (a) => void irPara(a),
     compartilhar: (t, x, url) => void compartilhar(t, x, url),
+    copiar: (texto) =>
+      void navigator.clipboard.writeText(texto).then(
+        () => avisar("Link copiado"),
+        () => prompt("Copie o link:", texto),
+      ),
   });
 
   $("#vista-inicio").addEventListener("click", (ev) => {

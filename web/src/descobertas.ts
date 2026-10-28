@@ -83,8 +83,7 @@ function cartoes(meta: Meta): Cartao[] {
             <i style="height:${h}px;background:${mov > 0 ? COR_A : COR_B}"></i><span>${u.uf}</span></div>`;
         })
         .join("")}</div>`,
-    nota: `Quando o humor do país muda, ele costuma mudar em quase todo lugar ao mesmo tempo. Os votos somados de
-      todos os locais batem exatamente com a totalização oficial do TSE, candidato por candidato, estado por estado.`,
+    nota: `Os votos somados de todos os locais batem exatamente com a totalização oficial do TSE, candidato por candidato, estado por estado.`,
     acao: { rotulo: "Ver no mapa", acao: { camada: "variacao" } },
     compartilhar: `Entre o 1º e o 2º turno, a margem andou para ${nomeCurto(meta, na)} em ${emCada10} de cada 10 locais de votação do Brasil.`,
   };
@@ -322,9 +321,29 @@ export function ativarCarrossel(caixa: HTMLElement): void {
   });
 }
 
+// Links públicos de compartilhar de cada rede: abrem a rede com o texto e o link preenchidos, e a pessoa
+// confirma lá. Nenhuma API, conta ou chave. (O Instagram não tem esse link: entra pelo "Mais", que abre o
+// menu de compartilhar do celular.)
+const REDES: { id: string; nome: string; cor: string; link: (texto: string, url: string) => string }[] = [
+  { id: "x", nome: "X", cor: "#000000", link: (t, u) => `https://x.com/intent/tweet?text=${encodeURIComponent(t)}&url=${encodeURIComponent(u)}` },
+  { id: "whatsapp", nome: "WhatsApp", cor: "#25d366", link: (t, u) => `https://wa.me/?text=${encodeURIComponent(`${t} ${u}`)}` },
+  { id: "facebook", nome: "Facebook", cor: "#1877f2", link: (_t, u) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}` },
+  { id: "linkedin", nome: "LinkedIn", cor: "#0a66c2", link: (_t, u) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(u)}` },
+  { id: "telegram", nome: "Telegram", cor: "#229ed9", link: (t, u) => `https://t.me/share/url?url=${encodeURIComponent(u)}&text=${encodeURIComponent(t)}` },
+];
+
+/** Endereço público do site (o canonical da página), mesmo quando aberto num servidor local. */
+const enderecoPublico = () =>
+  document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href ?? `${location.origin}${location.pathname}`;
+
 export function setupDescobertas(
   el: HTMLElement,
-  ctx: { meta: Meta; irPara: (a: Acao) => void; compartilhar: (titulo: string, texto: string, url: string) => void },
+  ctx: {
+    meta: Meta;
+    irPara: (a: Acao) => void;
+    compartilhar: (titulo: string, texto: string, url: string) => void;
+    copiar: (texto: string) => void;
+  },
 ): (ancora?: string) => void {
   let montado = false;
   const lista = cartoes(ctx.meta);
@@ -342,9 +361,18 @@ export function setupDescobertas(
           ${c.texto ? `<p class="texto">${c.texto}</p>` : ""}
           <div class="grafico">${c.grafico}</div>
           ${c.nota ? `<p class="nota">${c.nota}</p>` : ""}
-          <div class="acoes">
-            <button class="botao-grande" type="button" data-ir="${c.id}">${escapeHtml(c.acao.rotulo)}</button>
-            <button class="botao-grande secundario-botao" type="button" data-compartilhar="${c.id}" aria-label="Compartilhar">${ICONE.compartilhar}</button>
+          <button class="botao-grande" type="button" data-ir="${c.id}">${escapeHtml(c.acao.rotulo)}</button>
+          <div class="redes">
+            <span class="redes-titulo">Compartilhar</span>
+            <div class="redes-botoes">
+              ${REDES.map((r) => {
+                const url = `${enderecoPublico()}#/descobertas/${c.id}`;
+                return `<a class="rede" href="${r.link(c.compartilhar, url)}" target="_blank" rel="noopener"
+                  style="--rede:${r.cor}" aria-label="Compartilhar no ${r.nome}">${r.nome}</a>`;
+              }).join("")}
+              <button class="rede neutra" type="button" data-copiar="${c.id}">Copiar link</button>
+              ${"share" in navigator ? `<button class="rede neutra" type="button" data-compartilhar="${c.id}">${ICONE.compartilhar} Mais</button>` : ""}
+            </div>
           </div>
         </article>`,
         )
@@ -355,11 +383,13 @@ export function setupDescobertas(
       const t = ev.target as HTMLElement;
       const ir = t.closest<HTMLElement>("[data-ir]");
       if (ir) return ctx.irPara(lista.find((c) => c.id === ir.dataset.ir)!.acao.acao);
-      const comp = t.closest<HTMLElement>("[data-compartilhar]");
+      const comp = t.closest<HTMLElement>("[data-compartilhar], [data-copiar]");
       if (comp) {
-        const c = lista.find((x) => x.id === comp.dataset.compartilhar)!;
-        const url = `${location.origin}${location.pathname}#/descobertas/${c.id}`;
-        ctx.compartilhar(`Descobertas · ${c.rotulo}`, c.compartilhar, url);
+        const id = comp.dataset.compartilhar ?? comp.dataset.copiar;
+        const c = lista.find((x) => x.id === id)!;
+        const url = `${enderecoPublico()}#/descobertas/${c.id}`;
+        if (comp.dataset.copiar) ctx.copiar(`${c.compartilhar} ${url}`);
+        else ctx.compartilhar(`Descobertas · ${c.rotulo}`, c.compartilhar, url);
       }
     });
   }
