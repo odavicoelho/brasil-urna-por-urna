@@ -16,7 +16,7 @@ Site: https://odavicoelho.github.io/brasil-urna-por-urna/
 
 A página **Renda e voto** divide o eleitorado em cinco faixas pela renda do entorno e mostra o 2º turno em cada uma (somas exatas de votos), além de um gráfico com todos os locais. A página **Como foi feito** traz a conferência com os totais oficiais e os votos no exterior.
 
-As cores dos dois candidatos do 2º turno são neutras (roxo e verde, nenhuma é cor de partido).
+Lula aparece em vermelho e Flávio Bolsonaro em azul (par de cores conferido para daltonismo).
 
 ## De onde vêm os dados
 
@@ -49,7 +49,7 @@ npm run dev                      # http://localhost:5173/brasil-urna-por-urna/
 ../scripts/publicar-site.sh      # build + publicação no branch gh-pages (GitHub Pages)
 ```
 
-O site foi feito para abrir rápido no celular: o mapa pinta com um arquivo binário de ~450 KB (posição e 2º turno de cada local), o resto das camadas chega logo depois em outro de ~800 KB, e o detalhe de cada local só é baixado quando alguém toca nele (no máximo ~40 KB; as cidades grandes são divididas por zona eleitoral). O formato está descrito em `pipeline/src/urnaporurna/publish.py`.
+O site foi feito para abrir rápido no celular e mostra só o Brasil: de longe, o mapa de fundo é o contorno do país e dos estados (`brasil.json`, ~50 KB), sem baixar nada de outros países; de perto entram as ruas do OpenFreeMap, com uma máscara cobrindo os vizinhos. O mapa pinta com um arquivo binário de ~450 KB (posição e 2º turno de cada local), o resto das camadas chega logo depois em outro de ~800 KB, e o detalhe de cada local só é baixado quando alguém toca nele (no máximo ~40 KB; as cidades grandes são divididas por zona eleitoral). O formato está descrito em `pipeline/src/urnaporurna/publish.py`.
 
 Os dados do site (~80 MB no total) não vão para o `main`: ficam só no branch `gh-pages`, trocado inteiro a cada publicação.
 

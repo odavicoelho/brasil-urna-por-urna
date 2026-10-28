@@ -5,72 +5,69 @@ import {
   Map as MapLibre,
   type MapMouseEvent,
   NavigationControl,
+  type PaddingOptions,
   setWorkerUrl,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 
-import {
-  type Camadas,
-  loadCamadas,
-  loadDetalhe,
-  loadMeta,
-  loadMunicipios,
-  loadPontos,
-  type Meta,
-  type MunicipioInfo,
-  type Pontos,
-} from "./data";
+import { contar, revelar } from "./anima";
+import { type Camadas, loadCamadas, loadDetalhe, loadMeta, loadMunicipios, loadPontos, type Pontos } from "./data";
 import { escapeHtml, titleCase } from "./format";
-import { camadas as listaCamadas, type Camada } from "./layers";
-import { nomeCurto, renderLocal } from "./panel";
+import { type Camada, camadas as listaCamadas, COR_A, COR_B, gradiente } from "./layers";
+import { estiloBrasil, mascaraSobDemanda } from "./mapa";
+import { criarModal, fecharModais } from "./modal";
+import { ICONE, nomeCurto, renderCarregandoLocal, renderInicio, renderLocal } from "./panel";
 import { setupRenda } from "./renda";
 import { setupSearch } from "./search";
-import { criarFolha } from "./sheet";
+import { type Altura, criarPainel } from "./sheet";
 import { setupSobre } from "./sobre";
 
 const BRASIL: LngLatBoundsLike = [
-  [-74, -33.8],
-  [-34.8, 5.3],
+  [-73.99, -33.75],
+  [-34.79, 5.27],
 ];
 const computador = window.matchMedia("(min-width: 900px)");
+const $ = <T extends HTMLElement>(s: string) => document.querySelector<T>(s)!;
 
 // O worker do MapLibre é copiado para public/ (npm run copiar-worker): servido sem transformação,
 // porque o Vite em modo dev injeta código de página nele e o worker quebra.
 setWorkerUrl(`${import.meta.env.BASE_URL}maplibre/maplibre-gl-worker.mjs`);
 
-// Começa a baixar tudo já, em paralelo com o mapa de fundo.
+// Começa a baixar tudo já, em paralelo.
 const pMeta = loadMeta();
 const pPontos = loadPontos();
 const pMunicipios = loadMunicipios();
+const pEstilo = estiloBrasil();
 let pCamadas: Promise<Camadas> | null = null;
 const camadasProntas = () => (pCamadas ??= loadCamadas());
 
-const map = new MapLibre({
-  container: "mapa",
-  style: "https://tiles.openfreemap.org/styles/positron",
-  bounds: BRASIL,
-  // No celular, o Brasil cabe entre a busca (em cima) e o cartão da legenda (embaixo).
-  fitBoundsOptions: { padding: computador.matches ? { top: 20, bottom: 20, left: 400, right: 20 } : { top: 120, bottom: 220, left: 8, right: 8 } },
-  attributionControl: { compact: true },
-  dragRotate: false,
-  pitchWithRotate: false,
-  touchPitch: false,
-  maxZoom: 17.5,
-});
-map.touchZoomRotate.disableRotation();
-if (computador.matches) map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
-const mapaPronto = new Promise<void>((r) => map.once("load", () => r()));
+// ---------- Painel (folha de baixo / barra lateral) ----------
 
-const $ = <T extends HTMLElement>(s: string) => document.querySelector<T>(s)!;
-const conteudo = $("#folha-conteudo");
+const painel = criarPainel($("#painel"), $("#vistas"), () => document.querySelector("#cartao-brasil"));
+type Vista = "inicio" | "busca" | "local";
+let vista: Vista = "inicio";
+
+function mostrarVista(v: Vista, voltando = false) {
+  if (v === vista) return;
+  for (const id of ["inicio", "busca", "local"] as const) $(`#vista-${id}`).hidden = id !== v;
+  const el = $(`#vista-${v}`);
+  el.classList.remove("entrando", "voltando");
+  void el.offsetWidth;
+  el.classList.add(voltando ? "voltando" : "entrando");
+  $("#vistas").scrollTop = 0;
+  vista = v;
+}
 
 function avisar(texto: string) {
   const el = $("#aviso");
   el.textContent = texto;
   el.hidden = false;
+  el.style.animation = "none";
+  void el.offsetWidth;
+  el.style.animation = "";
   clearTimeout(Number(el.dataset.timer));
-  el.dataset.timer = String(setTimeout(() => (el.hidden = true), 2600));
+  el.dataset.timer = String(setTimeout(() => (el.hidden = true), 2400));
 }
 
 async function compartilhar(titulo: string, texto: string, url = location.href) {
@@ -90,7 +87,12 @@ async function compartilhar(titulo: string, texto: string, url = location.href) 
   }
 }
 
-// ---------- Mapa ----------
+/** Margens da câmera: o que a legenda e o painel escondem do mapa. */
+function margens(altura?: Altura): PaddingOptions {
+  if (computador.matches) return { top: 100, bottom: 40, left: 440, right: 80 };
+  const topo = ($("#flutuantes").getBoundingClientRect().bottom || 90) + 14;
+  return { top: topo, bottom: painel.visivel(altura) + 16, left: 20, right: 20 };
+}
 
 function geojson(p: Pontos, c: Camadas | null): FeatureCollection<Point> {
   const features = new Array(p.n);
@@ -117,167 +119,245 @@ function geojson(p: Pontos, c: Camadas | null): FeatureCollection<Point> {
   return { type: "FeatureCollection", features };
 }
 
-function nomesEmPortugues() {
-  for (const layer of map.getStyle().layers) {
-    if (layer.type === "symbol" && map.getLayoutProperty(layer.id, "text-field")) {
-      map.setLayoutProperty(layer.id, "text-field", ["coalesce", ["get", "name:pt"], ["get", "name"]]);
-    }
-  }
-}
-
-function setupCamadas(lista: Camada[]) {
-  const nav = $("#camadas");
-  const legenda = $("#legenda");
-  nav.innerHTML = lista
-    .map(
-      (c, i) =>
-        `<button type="button" data-id="${c.id}" aria-pressed="${i === 0}" ${c.completa ? "disabled" : ""}>${escapeHtml(c.rotulo)}</button>`,
-    )
-    .join("");
-  const escolher = (id: string) => {
-    const c = lista.find((x) => x.id === id)!;
-    map.setPaintProperty("locais", "circle-color", c.cor);
-    legenda.innerHTML = c.legenda;
-    nav.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.id === id)));
-  };
-  nav.addEventListener("click", (ev) => {
-    const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("button[data-id]");
-    if (b && !b.disabled) escolher(b.dataset.id!);
-  });
-  escolher(lista[0].id);
-  return () => nav.querySelectorAll("button").forEach((b) => (b.disabled = false));
-}
-
-// A altura do cartão de baixo decide onde fica o botão "perto de mim".
-new ResizeObserver(([e]) => {
-  document.documentElement.style.setProperty("--resumo-altura", `${Math.round(e.contentRect.height + 24)}px`);
-}).observe($("#resumo"));
-
-// ---------- Folha do local ----------
-
-const folha = criarFolha($("#folha"), conteudo, () => {
-  (map.getSource("selecionado") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: [] });
-  if (location.hash.startsWith("#/local/")) {
-    if (history.state?.folha) history.back();
-    else history.replaceState(null, "", "#/");
-  }
-});
-
-/** Espaço que a folha ocupa, para o ponto não ficar escondido atrás dela. */
-const margemFolha = () =>
-  computador.matches
-    ? { top: 40, bottom: 40, left: 420, right: 440 }
-    : { top: 130, bottom: Math.min(450, Math.round(innerHeight * 0.6)) + 20, left: 30, right: 30 };
-
-async function abrirLocal(
-  ctx: { meta: Meta; municipios: MunicipioInfo[]; pontos: Pontos },
-  i: number,
-  opcoes: { voar?: boolean; historico?: "push" | "replace" } = {},
-) {
-  const { meta, municipios, pontos } = ctx;
-  mostrar("mapa");
-  (map.getSource("selecionado") as GeoJSONSource).setData({
-    type: "Point",
-    coordinates: [pontos.lon[i], pontos.lat[i]],
-  });
-  conteudo.innerHTML = '<p class="nota" style="padding-top:8px">Carregando…</p>';
-  folha.abrir();
-  const centro: [number, number] = [pontos.lon[i], pontos.lat[i]];
-  if (opcoes.voar) map.flyTo({ center: centro, zoom: Math.max(map.getZoom(), 15), padding: margemFolha(), speed: 1.6 });
-  // Tocou com o país inteiro na tela: aproxima um pouco, para a pessoa ver onde fica.
-  else map.easeTo({ center: centro, zoom: Math.max(map.getZoom(), 9), padding: margemFolha(), duration: 600 });
-
-  try {
-    const cam = await camadasProntas();
-    const mun = municipios[cam.mun[i]];
-    const det = await loadDetalhe(mun, cam.zona[i]);
-    const local = det.locais[cam.pos[i]];
-    conteudo.innerHTML = renderLocal(meta, mun, local);
-    conteudo.scrollTop = 0;
-    const hash = `#/local/${local.id}`;
-    if (location.hash !== hash) {
-      if (opcoes.historico === "replace" || location.hash.startsWith("#/local/")) history.replaceState({ folha: true }, "", hash);
-      else history.pushState({ folha: true }, "", hash);
-    }
-    conteudo.querySelector("[data-compartilhar]")?.addEventListener("click", () => {
-      const t2 = local.turnos["2"];
-      const [na, nb] = meta.segundo_turno;
-      const va = t2?.votos?.[na] ?? 0;
-      const vb = t2?.votos?.[nb] ?? 0;
-      const vence = va >= vb ? nomeCurto(meta, na) : nomeCurto(meta, nb);
-      const p = Math.round((100 * Math.max(va, vb)) / Math.max(1, va + vb));
-      compartilhar(
-        `${titleCase(local.nome)} – ${titleCase(mun[1])}`,
-        `Em ${titleCase(local.nome)} (${titleCase(mun[1])}), ${vence} teve ${p}% dos votos válidos no 2º turno. Veja o seu local de votação:`,
-      );
-    });
-  } catch {
-    conteudo.innerHTML = '<p class="nota" style="padding-top:8px">Não foi possível carregar este local. Verifique a conexão e tente de novo.</p>';
-  }
-}
-
-// ---------- Páginas ----------
-
-type Aba = "mapa" | "renda" | "sobre";
-let aoMostrar: Partial<Record<Aba, () => void>> = {};
-
-function mostrar(aba: Aba) {
-  $("#pagina-renda").hidden = aba !== "renda";
-  $("#pagina-sobre").hidden = aba !== "sobre";
-  document.querySelectorAll<HTMLAnchorElement>("#abas a").forEach((a) => {
-    if (a.dataset.aba === aba) a.setAttribute("aria-current", "page");
-    else a.removeAttribute("aria-current");
-  });
-  document.body.classList.toggle("com-folha", aba === "mapa" && folha.aberta());
-  aoMostrar[aba]?.();
-}
-
 // ---------- Início ----------
 
 async function iniciar() {
-  const [meta, pontos, municipios] = await Promise.all([pMeta, pPontos, pMunicipios, mapaPronto]);
-  const ctx = { meta, municipios, pontos };
-  nomesEmPortugues();
+  const [meta, pontos, municipios, estilo] = await Promise.all([pMeta, pPontos, pMunicipios, pEstilo]);
+  const [na, nb] = meta.segundo_turno;
 
+  $("#vista-inicio").innerHTML = renderInicio(meta);
+  painel.ir("mini");
+  contar($("#vista-inicio"));
+  revelar($("#vista-inicio"));
+
+  const map = new MapLibre({
+    container: "mapa",
+    style: estilo,
+    bounds: BRASIL,
+    // Começa um pouco mais longe e assenta no Brasil quando os pontos aparecem.
+    fitBoundsOptions: { padding: { ...margens("mini"), left: 60, right: 60 } },
+    attributionControl: { compact: true },
+    dragRotate: false,
+    pitchWithRotate: false,
+    touchPitch: false,
+    minZoom: 2.5,
+    maxZoom: 17.5,
+    // Folgado na vertical: numa tela alta de celular, um limite justo obrigaria o mapa a aproximar.
+    maxBounds: [
+      [-110, -72],
+      [0, 38],
+    ],
+  });
+  map.touchZoomRotate.disableRotation();
+  if (computador.matches) map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
+  await new Promise<void>((r) => map.once("load", () => r()));
+  mascaraSobDemanda(map);
+  // Créditos do mapa: o MapLibre reabre sozinho quando o texto muda; aqui só abrem se a pessoa tocar no "i".
+  const creditos = document.querySelector(".maplibregl-ctrl-attrib");
+  creditos?.querySelector(".maplibregl-ctrl-attrib-button")?.addEventListener("click", () => {
+    const abrir = !creditos.classList.contains("creditos-abertos");
+    // depois do clique do próprio MapLibre, que alterna a classe dele
+    setTimeout(() => {
+      creditos.classList.toggle("creditos-abertos", abrir);
+      creditos.classList.toggle("maplibregl-compact-show", abrir);
+    });
+  });
+
+  // Pontos: entram transparentes e aparecem suavemente; a cor também anima ao trocar de camada.
   map.addSource("locais", { type: "geojson", data: geojson(pontos, null), buffer: 32, tolerance: 0.5 });
   map.addLayer({
     id: "locais",
     type: "circle",
     source: "locais",
     paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 1.3, 5, 1.8, 8, 2.7, 11, 4.5, 14, 8, 16, 11],
-      "circle-opacity": ["case", ["==", ["get", "aprox"], 1], 0.5, 0.92],
-      "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 10, 0, 13, 1],
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 1.25, 5, 1.8, 8, 2.8, 11, 4.6, 14, 8, 16, 11],
+      "circle-opacity": 0,
+      "circle-opacity-transition": { duration: 1000, delay: 0 },
+      "circle-color-transition": { duration: 550, delay: 0 },
+      "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 10, 0, 13, 1.2],
       "circle-stroke-color": "#ffffff",
     },
   });
-  map.addSource("selecionado", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  for (const id of ["pulso", "selecionado", "eu"]) {
+    map.addSource(id, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  }
+  map.addLayer({
+    id: "pulso",
+    type: "circle",
+    source: "pulso",
+    paint: { "circle-radius": 14, "circle-color": "#1c1c1e", "circle-opacity": 0 },
+  });
   map.addLayer({
     id: "selecionado",
     type: "circle",
     source: "selecionado",
     paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 7, 12, 12, 16, 18],
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 7, 12, 11, 16, 15],
       "circle-color": "rgba(0,0,0,0)",
       "circle-stroke-width": 3,
-      "circle-stroke-color": "#18181b",
+      "circle-stroke-color": "#1c1c1e",
     },
   });
-  map.addSource("eu", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({
     id: "eu",
     type: "circle",
     source: "eu",
-    paint: { "circle-radius": 8, "circle-color": "#1a73e8", "circle-stroke-width": 3, "circle-stroke-color": "#fff" },
+    paint: { "circle-radius": 8, "circle-color": "#1c1c1e", "circle-stroke-width": 3, "circle-stroke-color": "#fff" },
+  });
+  requestAnimationFrame(() =>
+    map.setPaintProperty("locais", "circle-opacity", ["case", ["==", ["get", "aprox"], 1], 0.5, 0.92]),
+  );
+
+  // Onda que pulsa em volta do local escolhido.
+  let pulsando = 0;
+  function pulsar(c: [number, number] | null) {
+    cancelAnimationFrame(pulsando);
+    const dados = c ? { type: "Point" as const, coordinates: c } : { type: "FeatureCollection" as const, features: [] };
+    (map.getSource("pulso") as GeoJSONSource).setData(dados);
+    (map.getSource("selecionado") as GeoJSONSource).setData(dados);
+    if (!c) return;
+    const t0 = performance.now();
+    const passo = (t: number) => {
+      const p = ((t - t0) % 1700) / 1700;
+      map.setPaintProperty("pulso", "circle-radius", 10 + 24 * p);
+      map.setPaintProperty("pulso", "circle-opacity", 0.3 * (1 - p) ** 1.5);
+      pulsando = requestAnimationFrame(passo);
+    };
+    pulsando = requestAnimationFrame(passo);
+  }
+
+  // ---------- Camadas e legenda ----------
+  const lista = listaCamadas({ a: nomeCurto(meta, na), b: nomeCurto(meta, nb), numA: na, numB: nb });
+  let camadaAtual = lista[0];
+  let completas = false;
+
+  function desenharLegenda(c: Camada) {
+    const esperando = c.completa && !completas;
+    const esquerda = c.candidatos
+      ? `<span><i class="ponto" style="background:${COR_B}"></i>${escapeHtml(c.esquerda)}</span>`
+      : `<span>${escapeHtml(c.esquerda)}</span>`;
+    const direita = c.candidatos
+      ? `<span>${escapeHtml(c.direita)}<i class="ponto" style="background:${COR_A}"></i></span>`
+      : `<span>${escapeHtml(c.direita)}</span>`;
+    $("#legenda").innerHTML = `<div class="legenda-conteudo">
+      <div class="legenda-topo">${escapeHtml(c.rotulo)} ${ICONE.baixo}
+        ${esperando ? '<span class="girando carregando"></span>' : ""}</div>
+      <div class="legenda-barra" style="background:${gradiente(c.cores)}"></div>
+      <div class="legenda-pontas">${esquerda}${direita}</div></div>`;
+  }
+
+  const modalCamadas = criarModal($("#modal-camadas"), "O que o mapa mostra");
+  const grade = document.createElement("div");
+  grade.className = "grade-camadas";
+  modalCamadas.corpo.replaceWith(grade);
+  function renderCamadas() {
+    grade.innerHTML = lista
+      .map(
+        (c) => `<button class="camada" type="button" data-id="${c.id}" aria-pressed="${c.id === camadaAtual.id}"
+          ${c.completa && !completas ? "disabled" : ""}>
+          <span class="previa" style="background:${gradiente(c.cores)}"></span>
+          <strong>${escapeHtml(c.rotulo)}</strong><small>${escapeHtml(c.descricao)}</small></button>`,
+      )
+      .join("");
+  }
+  function escolherCamada(c: Camada) {
+    const mudou = c.id !== camadaAtual.id;
+    camadaAtual = c;
+    map.setPaintProperty("locais", "circle-color", c.cor);
+    if (mudou || completas) desenharLegenda(c);
+    renderCamadas();
+  }
+  grade.addEventListener("click", (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("button[data-id]");
+    if (!b || b.disabled) return;
+    escolherCamada(lista.find((x) => x.id === b.dataset.id)!);
+    setTimeout(() => modalCamadas.fechar(), 200);
+  });
+  $("#legenda").addEventListener("click", () => modalCamadas.abrir());
+  $("#botao-camadas").addEventListener("click", () => modalCamadas.abrir());
+  map.setPaintProperty("locais", "circle-color", camadaAtual.cor);
+  desenharLegenda(camadaAtual);
+  renderCamadas();
+
+  // O resto das camadas chega em segundo plano.
+  camadasProntas()
+    .then((cam) => {
+      (map.getSource("locais") as GeoJSONSource).setData(geojson(pontos, cam));
+      completas = true;
+      escolherCamada(camadaAtual);
+    })
+    .catch(() => avisar("Algumas camadas não carregaram"));
+
+  // ---------- Local ----------
+  let localAberto: number | null = null;
+
+  /** Volta para o mapa: desfaz a entrada no histórico, se foi o app que a criou. */
+  function sair() {
+    if (history.state?.app) history.back();
+    else history.replaceState(null, "", "#/");
+  }
+
+  function fecharLocal(navegar = true) {
+    if (localAberto == null) return;
+    localAberto = null;
+    pulsar(null);
+    mostrarVista("inicio", true);
+    painel.ir("mini");
+    if (navegar && location.hash.startsWith("#/local/")) sair();
+  }
+
+  async function abrirLocal(i: number, opcoes: { voar?: boolean; substituir?: boolean } = {}) {
+    fecharModais();
+    localAberto = i;
+    const c: [number, number] = [pontos.lon[i], pontos.lat[i]];
+    pulsar(c);
+    $("#vista-local").innerHTML = renderCarregandoLocal();
+    mostrarVista("local");
+    painel.ir("meio");
+    const zoom = opcoes.voar ? Math.max(map.getZoom(), 15) : Math.max(map.getZoom(), 9);
+    map.flyTo({ center: c, zoom, padding: margens("meio"), speed: 1.4, curve: 1.5, essential: true });
+
+    try {
+      const cam = await camadasProntas();
+      const mun = municipios[cam.mun[i]];
+      const det = await loadDetalhe(mun, cam.zona[i]);
+      if (localAberto !== i) return;
+      const local = det.locais[cam.pos[i]];
+      const el = $("#vista-local");
+      el.innerHTML = renderLocal(meta, mun, local);
+      contar(el);
+      revelar(el);
+      const hash = `#/local/${local.id}`;
+      if (location.hash !== hash) {
+        if (opcoes.substituir || location.hash.startsWith("#/local/")) history.replaceState({ app: true }, "", hash);
+        else history.pushState({ app: true }, "", hash);
+      }
+      el.querySelector("[data-compartilhar]")?.addEventListener("click", () => {
+        const t2 = local.turnos["2"];
+        const va = t2?.votos?.[na] ?? 0;
+        const vb = t2?.votos?.[nb] ?? 0;
+        const vence = va >= vb ? nomeCurto(meta, na) : nomeCurto(meta, nb);
+        const p = Math.round((100 * Math.max(va, vb)) / Math.max(1, va + vb));
+        void compartilhar(
+          `${titleCase(local.nome)} – ${titleCase(mun[1])}`,
+          `Em ${titleCase(local.nome)} (${titleCase(mun[1])}), ${vence} teve ${p}% dos votos válidos no 2º turno. Veja como votou o seu local:`,
+        );
+      });
+    } catch {
+      if (localAberto === i)
+        $("#vista-local").innerHTML = `<div class="local-cabeca"><h2>Sem conexão</h2>
+          <p>Não foi possível carregar este local. Tente de novo.</p>
+          <button class="fechar" type="button" data-fechar aria-label="Fechar">${ICONE.fechar}</button></div>`;
+    }
+  }
+
+  $("#vista-local").addEventListener("click", (ev) => {
+    if ((ev.target as HTMLElement).closest("[data-fechar]")) fecharLocal();
   });
 
-  const [na, nb] = meta.segundo_turno;
-  const liberarCamadas = setupCamadas(listaCamadas({ a: nomeCurto(meta, na), b: nomeCurto(meta, nb), numA: na, numB: nb }));
-  $("#carregando").remove();
-
-  // Toque: o local mais perto do dedo, num raio de ~16 px (pontos pequenos são difíceis de acertar).
+  // Toque no mapa: o local mais perto do dedo, num raio de ~18 px (pontos pequenos são difíceis de acertar).
   map.on("click", (ev: MapMouseEvent) => {
-    const r = computador.matches ? 8 : 16;
+    const r = computador.matches ? 8 : 18;
     const { x, y } = ev.point;
     const achados = map.queryRenderedFeatures(
       [
@@ -287,7 +367,8 @@ async function iniciar() {
       { layers: ["locais"] },
     );
     if (!achados.length) {
-      if (folha.aberta()) folha.fechar();
+      if (vista === "local") fecharLocal();
+      else if (!computador.matches && painel.altura() !== "mini") painel.ir("mini");
       return;
     }
     let melhor = achados[0];
@@ -300,44 +381,50 @@ async function iniciar() {
         melhor = f;
       }
     }
-    void abrirLocal(ctx, Number(melhor.id));
+    void abrirLocal(Number(melhor.id));
   });
   map.on("mouseenter", "locais", () => (map.getCanvas().style.cursor = "pointer"));
   map.on("mouseleave", "locais", () => (map.getCanvas().style.cursor = ""));
 
-  // O resto das camadas chega em segundo plano.
-  camadasProntas()
-    .then((cam) => {
-      (map.getSource("locais") as GeoJSONSource).setData(geojson(pontos, cam));
-      liberarCamadas();
-    })
-    .catch(() => avisar("Algumas camadas não carregaram. Recarregue a página."));
-
+  // ---------- Perto de mim ----------
   function pertoDeMim() {
-    if (!navigator.geolocation) return avisar("Seu navegador não informa a localização.");
+    if (!navigator.geolocation) return avisar("Seu navegador não informa a localização");
     avisar("Procurando você…");
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         const c: [number, number] = [coords.longitude, coords.latitude];
         (map.getSource("eu") as GeoJSONSource).setData({ type: "Point", coordinates: c });
-        mostrar("mapa");
-        if (folha.aberta()) folha.fechar();
-        map.flyTo({ center: c, zoom: 14.5, speed: 1.6 });
+        fecharModais();
+        if (localAberto != null) fecharLocal();
+        painel.ir("mini");
+        map.flyTo({ center: c, zoom: 14.5, padding: margens("mini"), speed: 1.4 });
         $("#aviso").hidden = true;
       },
-      () => avisar("Não foi possível pegar sua localização."),
+      () => avisar("Não foi possível pegar sua localização"),
       { enableHighAccuracy: true, timeout: 12000 },
     );
   }
-  $("#perto").addEventListener("click", pertoDeMim);
+  $("#botao-perto").addEventListener("click", pertoDeMim);
 
-  setupSearch(
+  // ---------- Busca ----------
+  let vistaAntesDaBusca: Vista = "inicio";
+  setupSearch({
     municipios,
-    async () => (await camadasProntas()).mun,
-    async (e) => {
-      mostrar("mapa");
-      if (location.hash !== "#/" && !location.hash.startsWith("#/local/")) history.replaceState(null, "", "#/");
-      if (e.local != null) return abrirLocal(ctx, e.local, { voar: true });
+    munDoLocal: async () => (await camadasProntas()).mun,
+    aoAbrir: () => {
+      if (vista !== "busca") vistaAntesDaBusca = vista;
+      mostrarVista("busca");
+      painel.ir("cheia");
+    },
+    aoFechar: () => {
+      mostrarVista(vistaAntesDaBusca, true);
+      painel.ir(vistaAntesDaBusca === "local" ? "meio" : "mini");
+    },
+    aoEscolher: async (e) => {
+      if (e.local != null) return abrirLocal(e.local, { voar: true });
+      if (localAberto != null) fecharLocal();
+      mostrarVista("inicio", true);
+      painel.ir("mini");
       const cam = await camadasProntas();
       let [x0, y0, x1, y1] = [180, 90, -180, -90];
       for (let i = 0; i < pontos.n; i++) {
@@ -347,68 +434,77 @@ async function iniciar() {
         y0 = Math.min(y0, pontos.lat[i]);
         y1 = Math.max(y1, pontos.lat[i]);
       }
-      if (folha.aberta()) folha.fechar();
       if (x0 <= x1)
         map.fitBounds(
           [
             [x0, y0],
             [x1, y1],
           ],
-          { padding: computador.matches ? { top: 60, bottom: 60, left: 430, right: 60 } : { top: 130, bottom: 190, left: 30, right: 30 }, maxZoom: 15 },
+          { padding: margens("mini"), maxZoom: 14.5, duration: 1600 },
         );
     },
     pertoDeMim,
-  );
+  });
 
-  aoMostrar = {
-    renda: setupRenda($("#pagina-renda"), {
-      meta,
-      municipios,
-      pontos,
-      camadas: camadasProntas(),
-      abrirLocal: (i) => {
-        history.pushState(null, "", "#/");
-        void abrirLocal(ctx, i, { voar: true, historico: "replace" });
-      },
-      compartilhar: (t, x) => compartilhar(t, x),
-    }),
-    sobre: setupSobre($("#pagina-sobre"), meta),
-  };
+  // ---------- Cartões: Renda e voto, Como foi feito ----------
+  const modalRenda = criarModal($("#modal-renda"), "Renda e voto", sair);
+  const modalSobre = criarModal($("#modal-sobre"), "Como foi feito", sair);
+  const mostrarRenda = setupRenda(modalRenda.corpo, {
+    meta,
+    municipios,
+    pontos,
+    camadas: camadasProntas(),
+    abrirLocal: (i) => void abrirLocal(i, { voar: true, substituir: true }),
+    compartilhar: (t, x) => void compartilhar(t, x),
+  });
+  const mostrarSobre = setupSobre(modalSobre.corpo, meta);
 
-  // Rotas: #/ (mapa), #/local/<id>, #/renda, #/sobre
+  $("#vista-inicio").addEventListener("click", (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLElement>("[data-abrir]");
+    if (!b) return;
+    const destino = b.dataset.abrir;
+    history.pushState({ app: true }, "", destino === "renda" ? "#/renda" : destino === "exterior" ? "#/sobre/exterior" : "#/sobre");
+    void rota();
+  });
+
+  // ---------- Rotas: #/ (mapa), #/local/<id>, #/renda, #/sobre ----------
   async function rota() {
     const h = location.hash;
-    if (h === "#/renda") return mostrar("renda");
-    if (h === "#/sobre") return mostrar("sobre");
-    mostrar("mapa");
-    const m = h.match(/^#\/local\/(\d{5})-(\d+)-(\d+)$/);
-    if (!m) {
-      if (folha.aberta()) folha.fechar();
-      return;
+    if (h === "#/renda") {
+      modalRenda.abrir();
+      return mostrarRenda();
     }
+    if (h.startsWith("#/sobre")) {
+      modalSobre.abrir();
+      return mostrarSobre(h.split("/")[2]);
+    }
+    fecharModais();
+    const m = h.match(/^#\/local\/(\d{5})-(\d+)-(\d+)$/);
+    if (!m) return fecharLocal(false);
     const id = m[0].slice(8);
     const munIdx = municipios.findIndex((x) => x[0] === m[1]);
     if (munIdx < 0) return;
     const cam = await camadasProntas();
-    const det = await loadDetalhe(municipios[munIdx], Number(m[2]));
+    const zona = Number(m[2]);
+    const det = await loadDetalhe(municipios[munIdx], zona);
     const pos = det.locais.findIndex((l) => l.id === id);
     for (let i = 0; i < pontos.n; i++) {
-      if (cam.mun[i] === munIdx && cam.pos[i] === pos && cam.zona[i] === Number(m[2])) {
-        return abrirLocal(ctx, i, { voar: true, historico: "replace" });
+      if (cam.mun[i] === munIdx && cam.zona[i] === zona && cam.pos[i] === pos) {
+        if (localAberto !== i) void abrirLocal(i, { voar: true, substituir: true });
+        return;
       }
     }
-    avisar("Este local não está no mapa.");
+    avisar("Este local não está no mapa");
   }
-  // Voltar e avançar do navegador também disparam hashchange (pushState/replaceState não).
+  // Voltar e avançar do navegador disparam hashchange (pushState/replaceState não).
   window.addEventListener("hashchange", () => void rota());
-  void rota();
+
+  // Abertura: os pontos aparecem e a câmera assenta suavemente no Brasil.
+  if (location.hash && location.hash !== "#/") void rota();
+  else map.fitBounds(BRASIL, { padding: margens("mini"), duration: 1600 });
 }
 
-document.addEventListener("keydown", (ev) => ev.key === "Escape" && folha.aberta() && folha.fechar());
-$("#folha-fechar").addEventListener("click", () => folha.fechar());
-
-iniciar().catch(() => {
-  const el = document.querySelector("#carregando");
-  if (el) el.textContent = "Não foi possível carregar os dados. Recarregue a página.";
-  else avisar("Algo deu errado. Recarregue a página.");
+iniciar().catch((e) => {
+  console.error(e);
+  $("#legenda").innerHTML = '<div class="legenda-topo">Não foi possível carregar. Recarregue a página.</div>';
 });

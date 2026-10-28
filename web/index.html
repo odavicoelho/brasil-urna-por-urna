@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#f2f2f7" />
+    <meta name="color-scheme" content="light" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Brasil Urna por Urna · O resultado da eleição em cada local de votação</title>
     <meta
       name="description"
@@ -31,77 +34,58 @@
 
     <!-- O mínimo para pintar o mapa: começa a baixar antes do JavaScript rodar. -->
     <link rel="preload" href="dados/pontos.bin" as="fetch" crossorigin />
+    <link rel="preload" href="dados/brasil.json" as="fetch" crossorigin />
     <link rel="preload" href="dados/meta.json" as="fetch" crossorigin />
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
+    <!-- Inter só para quem não tem a fonte do sistema da Apple (Android, Windows). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&display=swap" />
   </head>
   <body>
-    <div id="mapa" role="application" aria-label="Mapa dos locais de votação"></div>
+    <div id="app">
+      <div id="mapa" role="application" aria-label="Mapa dos locais de votação"></div>
 
-    <div id="lateral">
-      <header id="topo">
-        <button id="abrir-busca" class="busca-pilula" type="button">
-          <img src="icone.svg" alt="" width="28" height="28" />
-          <span>Buscar escola, bairro ou cidade</span>
-          <svg class="lupa" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
+      <div id="flutuantes">
+        <button id="legenda" class="vidro" type="button" aria-label="Trocar o que o mapa mostra">
+          <div class="legenda-topo">Carregando o mapa <span class="girando carregando"></span></div>
         </button>
-        <nav id="camadas" class="chips" aria-label="O que o mapa mostra"></nav>
-      </header>
-
-      <section id="resumo" class="cartao" aria-live="polite">
-        <div class="marca">
-          <strong>Brasil Urna por Urna</strong>
-          <span>Eleição presidencial 2026</span>
+        <div class="grupo-botoes vidro">
+          <button id="botao-camadas" type="button" aria-label="Camadas">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z" /><path d="m3 13 9 5 9-5" /></svg>
+          </button>
+          <span class="divisor"></span>
+          <button id="botao-perto" type="button" aria-label="Locais perto de mim">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5 3.8 10.4a.6.6 0 0 0 .05 1.13l6.6 2.02 2.02 6.6a.6.6 0 0 0 1.13.05L20.5 3.5Z" /></svg>
+          </button>
         </div>
-        <div id="legenda"></div>
-        <p id="carregando"><span class="girando" aria-hidden="true"></span> Carregando os locais de votação…</p>
+      </div>
+
+      <!-- Painel principal: folha de baixo no celular, barra lateral no computador. -->
+      <section id="painel" aria-label="Painel">
+        <div class="alca" aria-hidden="true"><span></span></div>
+        <div class="busca-linha">
+          <label class="campo-busca">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
+            <input id="busca-campo" type="search" enterkeyhint="search" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="Buscar escola, bairro ou cidade" autocomplete="off" />
+          </label>
+          <button id="busca-cancelar" class="texto-botao" type="button" hidden>Cancelar</button>
+        </div>
+        <div id="vistas">
+          <div id="vista-inicio" class="vista"></div>
+          <div id="vista-busca" class="vista" hidden><ul id="busca-resultados"></ul></div>
+          <div id="vista-local" class="vista" hidden></div>
+        </div>
       </section>
     </div>
 
-    <button id="perto" class="botao-redondo" type="button" aria-label="Ir para perto de mim" title="Perto de mim">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="8" /></svg>
-    </button>
+    <!-- Cartões que sobem por cima do mapa -->
+    <div id="fundo-modal" hidden></div>
+    <section id="modal-renda" class="modal" hidden aria-label="Renda e voto" role="dialog"></section>
+    <section id="modal-sobre" class="modal" hidden aria-label="Como foi feito" role="dialog"></section>
+    <section id="modal-camadas" class="modal modal-pequeno" hidden aria-label="Camadas" role="dialog"></section>
 
-    <section id="folha" class="cartao" hidden aria-label="Local de votação">
-      <div id="folha-alca" aria-hidden="true"><span></span></div>
-      <button id="folha-fechar" class="fechar" type="button" aria-label="Fechar">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
-      </button>
-      <div id="folha-conteudo"></div>
-    </section>
-
-    <div id="busca" class="tela" hidden role="dialog" aria-label="Buscar">
-      <div class="busca-barra">
-        <button id="busca-voltar" class="voltar" type="button" aria-label="Voltar">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
-        </button>
-        <input id="busca-campo" type="search" enterkeyhint="search" placeholder="Escola, bairro ou cidade" autocomplete="off" />
-      </div>
-      <button id="busca-perto" class="linha-acao" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="8" /></svg>
-        Locais perto de mim
-      </button>
-      <ul id="busca-resultados"></ul>
-    </div>
-
-    <main id="pagina-renda" class="pagina" hidden></main>
-    <main id="pagina-sobre" class="pagina" hidden></main>
-
-    <nav id="abas" aria-label="Seções">
-      <a href="#/" data-aba="mapa">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" /><path d="M9 4v14M15 6v14" /></svg>
-        Mapa
-      </a>
-      <a href="#/renda" data-aba="renda">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h16" /><path d="M8 16v-3M12 16V9M16 16v-6M20 16V6" /></svg>
-        Renda e voto
-      </a>
-      <a href="#/sobre" data-aba="sobre">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
-        Como foi feito
-      </a>
-    </nav>
-
-    <div id="aviso" role="status" hidden></div>
+    <div id="aviso" class="vidro" role="status" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -11,6 +11,7 @@
   cada local nesse array.
 - `exterior.json`: os locais de votação no exterior (fora do mapa).
 - `meta.json`: candidatos, totais nacionais, conferências e datas dos dados.
+- `brasil.json` e `mascara.json`: o mapa de fundo de longe e a máscara dos outros países (ver contorno.py).
 """
 
 from __future__ import annotations
@@ -27,9 +28,13 @@ from typing import Any
 
 import duckdb
 
+from urnaporurna import contorno
 from urnaporurna.config import MANIFEST, ROOT, SILVER
 
 OUT = ROOT / "web" / "public" / "dados"
+
+# Nome de urna como o site mostra: o TSE grava os nomes sem acento. Só para exibição; a base fica igual.
+NOME_EXIBIDO = {"FLAVIO BOLSONARO": "FLÁVIO BOLSONARO"}
 
 # Municípios com mais locais que isso têm o detalhe dividido por zona eleitoral.
 SPLIT_ABOVE = 300
@@ -292,6 +297,8 @@ def meta(con: duckdb.DuckDBPyConnection, n_map: int) -> dict[str, Any]:
         "SELECT turno, numero, nome, partido, situacao FROM candidatos_turno"
         " WHERE valido ORDER BY turno, numero",
     )
+    for c in cands:
+        c["nome"] = NOME_EXIBIDO.get(c["nome"], c["nome"])
     totals = rows(
         con,
         """
@@ -382,6 +389,7 @@ def run() -> dict[str, int]:
     sizes["detalhe/*.json"] = sum(
         dump(OUT / "detalhe" / f"{key}.json", s) for key, s in shards(details).items() if s["uf"] != "ZZ"
     )
+    sizes.update(contorno.run(OUT))
     sizes["meta.json"] = dump(
         OUT / "meta.json",
         {**meta(con, len(layer)), "segundo_turno": [a, b], "faixas_renda": income_bands(con, a, b)},

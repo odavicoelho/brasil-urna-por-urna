@@ -1,93 +1,137 @@
-// Folha de baixo do celular: abre pela metade (placar e botão de compartilhar à vista), arrasta para cima
-// para ver tudo, arrasta para baixo para fechar. No computador vira painel lateral fixo (só CSS).
+// Folha de baixo do celular, como no Mapas da Apple: três alturas (mini, meio, cheia), segue o dedo,
+// encaixa na altura mais próxima levando em conta a velocidade e resiste um pouco além dos limites.
+// Com a folha cheia, o conteúdo rola; puxar para baixo com o conteúdo no topo desce a folha.
+// No computador o painel é uma barra lateral fixa (só CSS) e nada disto roda.
+
+export type Altura = "mini" | "meio" | "cheia";
 
 const computador = window.matchMedia("(min-width: 900px)");
 
-export interface Folha {
-  abrir(): void;
-  fechar(): void;
-  aberta(): boolean;
+export interface Painel {
+  ir(a: Altura): void;
+  altura(): Altura;
+  /** Quantos pixels da folha aparecem na tela (para o mapa não esconder nada atrás dela). */
+  visivel(a?: Altura): number;
+  aoMudar(f: (a: Altura) => void): void;
 }
 
-export function criarFolha(el: HTMLElement, conteudo: HTMLElement, aoFechar: () => void): Folha {
-  let estado: "fechada" | "meio" | "cheia" = "fechada";
+export function criarPainel(el: HTMLElement, rolagem: HTMLElement, fimDoMini: () => HTMLElement | null): Painel {
+  let atual: Altura = "mini";
+  const ouvintes: ((a: Altura) => void)[] = [];
+  const seguroBaixo = () => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue("--seguro-baixo");
+    return parseFloat(v) || 0;
+  };
 
-  const altura = () => el.offsetHeight;
-  // Quanto da folha aparece no meio: o suficiente para o placar e o botão de compartilhar.
-  const yMeio = () => Math.max(0, altura() - Math.min(450, Math.round(window.innerHeight * 0.6)));
-  const posicao = (y: number) => el.style.setProperty("--folha-y", `${Math.round(y)}px`);
+  const H = () => el.offsetHeight;
+  function visivel(a: Altura = atual): number {
+    if (computador.matches) return 0;
+    if (a === "cheia") return H();
+    if (a === "meio") return Math.round(Math.min(H(), (el.parentElement?.clientHeight ?? innerHeight) * 0.52));
+    const fim = fimDoMini();
+    // offsetTop é relativo ao painel (o primeiro ancestral posicionado)
+    const ate = fim ? fim.offsetTop + fim.offsetHeight + 14 : 150;
+    return Math.round(ate + seguroBaixo());
+  }
+  const yDe = (a: Altura) => H() - visivel(a);
 
-  function ir(novo: "meio" | "cheia") {
-    estado = novo;
-    posicao(novo === "cheia" ? 0 : yMeio());
+  function posicionar(y: number) {
+    el.style.setProperty("--painel-y", `${Math.round(y)}px`);
+    document.documentElement.style.setProperty("--painel-visivel", `${Math.max(0, Math.round(H() - y))}px`);
   }
 
-  function abrir() {
-    document.body.classList.add("com-folha");
-    if (estado === "fechada") {
-      el.hidden = false;
-      posicao(altura()); // começa escondida embaixo e sobe
-      void el.offsetHeight;
-      requestAnimationFrame(() => ir("meio"));
-    } else if (!computador.matches && estado === "cheia") {
-      ir("meio");
-    }
-    conteudo.scrollTop = 0;
+  function ir(a: Altura) {
+    if (computador.matches) return;
+    const mudou = a !== atual;
+    atual = a;
+    posicionar(yDe(a));
+    // Fora da altura cheia o conteúdo não rola: arrastar em qualquer lugar move a folha.
+    rolagem.style.overflowY = a === "cheia" ? "auto" : "hidden";
+    if (a !== "cheia") rolagem.scrollTop = 0;
+    if (mudou) ouvintes.forEach((f) => f(a));
   }
 
-  function fechar() {
-    if (estado === "fechada") return;
-    estado = "fechada";
-    document.body.classList.remove("com-folha");
-    if (computador.matches) {
-      el.hidden = true;
-    } else {
-      posicao(altura());
-      setTimeout(() => estado === "fechada" && (el.hidden = true), 280);
-    }
-    aoFechar();
+  // ---------- Arrastar ----------
+  let inicio: { y: number; x: number; base: number; arrastando: boolean } | null = null;
+  const historico: { y: number; t: number }[] = [];
+
+  function comecar(x: number, y: number) {
+    inicio = { x, y, base: yDe(atual), arrastando: false };
+    historico.length = 0;
   }
 
-  // Arrastar pela alça ou pelo título do local.
-  let inicio: { y: number; base: number; t: number } | null = null;
-  el.addEventListener("pointerdown", (ev) => {
-    if (computador.matches || !(ev.target as HTMLElement).closest("#folha-alca, .local-topo")) return;
-    inicio = { y: ev.clientY, base: estado === "cheia" ? 0 : yMeio(), t: performance.now() };
-    el.classList.add("arrastando");
-    el.setPointerCapture(ev.pointerId);
-  });
-  el.addEventListener("pointermove", (ev) => {
+  function mover(x: number, y: number, ev: Event, alvo: EventTarget | null): void {
     if (!inicio) return;
-    posicao(Math.min(altura(), Math.max(0, inicio.base + ev.clientY - inicio.y)));
-  });
-  const soltar = (ev: PointerEvent) => {
+    const dy = y - inicio.y;
+    if (!inicio.arrastando) {
+      if (Math.abs(dy) < 6 || Math.abs(dy) < Math.abs(x - inicio.x)) return;
+      const noConteudo = rolagem.contains(alvo as Node);
+      // Folha cheia: o conteúdo rola, a não ser que esteja no topo e o dedo desça.
+      if (atual === "cheia" && noConteudo && (rolagem.scrollTop > 0 || dy < 0)) {
+        inicio = null;
+        return;
+      }
+      inicio.arrastando = true;
+      el.classList.add("arrastando");
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
+    if (ev.cancelable) ev.preventDefault();
+    let alvoY = inicio.base + dy;
+    const max = yDe("mini");
+    // Resistência além dos limites (como o elástico do iOS)
+    if (alvoY < 0) alvoY = -Math.sqrt(-alvoY) * 3;
+    if (alvoY > max) alvoY = max + Math.sqrt(alvoY - max) * 3;
+    posicionar(alvoY);
+    historico.push({ y: alvoY, t: performance.now() });
+    if (historico.length > 6) historico.shift();
+  }
+
+  function soltar() {
     if (!inicio) return;
-    const dy = ev.clientY - inicio.y;
-    const rapido = Math.abs(dy) / Math.max(1, performance.now() - inicio.t) > 0.5;
-    const y = inicio.base + dy;
+    const estava = inicio.arrastando;
     inicio = null;
     el.classList.remove("arrastando");
-    if (Math.abs(dy) < 6) {
-      // toque na alça: alterna
-      if ((ev.target as HTMLElement).closest("#folha-alca")) ir(estado === "cheia" ? "meio" : "cheia");
-      else ir(estado as "meio" | "cheia");
-      return;
+    if (!estava) return;
+    const a = historico[0];
+    const b = historico[historico.length - 1];
+    const v = a && b && b.t > a.t ? (b.y - a.y) / (b.t - a.t) : 0; // px/ms, positivo = descendo
+    const projetado = (b?.y ?? yDe(atual)) + v * 220;
+    const opcoes: Altura[] = ["cheia", "meio", "mini"];
+    let melhor: Altura = atual;
+    let d = Infinity;
+    for (const o of opcoes) {
+      const dd = Math.abs(yDe(o) - projetado);
+      if (dd < d) {
+        d = dd;
+        melhor = o;
+      }
     }
-    if (dy > 0 && (y > yMeio() + 90 || (rapido && estado === "meio"))) fechar();
-    else if (dy > 0) ir("meio");
-    else ir("cheia");
+    ir(melhor);
+  }
+
+  el.addEventListener("touchstart", (ev) => comecar(ev.touches[0].clientX, ev.touches[0].clientY), { passive: true });
+  el.addEventListener("touchmove", (ev) => mover(ev.touches[0].clientX, ev.touches[0].clientY, ev, ev.target), { passive: false });
+  el.addEventListener("touchend", soltar);
+  el.addEventListener("touchcancel", soltar);
+  // Mouse (testes e telas de toque pequenas com mouse)
+  el.addEventListener("mousedown", (ev) => !computador.matches && comecar(ev.clientX, ev.clientY));
+  window.addEventListener("mousemove", (ev) => inicio && mover(ev.clientX, ev.clientY, ev, ev.target));
+  window.addEventListener("mouseup", soltar);
+
+  // Toque na alça alterna entre meio e cheia.
+  el.querySelector(".alca")?.addEventListener("click", () => ir(atual === "cheia" ? "meio" : atual === "meio" ? "cheia" : "meio"));
+
+  window.addEventListener("resize", () => ir(atual));
+  computador.addEventListener("change", () => {
+    rolagem.style.overflowY = "auto";
+    if (!computador.matches) ir(atual);
+  });
+  if (computador.matches) rolagem.style.overflowY = "auto";
+
+  return {
+    ir,
+    altura: () => atual,
+    visivel,
+    aoMudar: (f) => ouvintes.push(f),
   };
-  el.addEventListener("pointerup", soltar);
-  el.addEventListener("pointercancel", soltar);
-
-  // Rolar o conteúdo com a folha pela metade: sobe a folha inteira (senão o fim fica fora da tela).
-  conteudo.addEventListener("scroll", () => {
-    if (!computador.matches && estado === "meio" && conteudo.scrollTop > 4) ir("cheia");
-  });
-
-  window.addEventListener("resize", () => {
-    if (estado !== "fechada" && !computador.matches) ir(estado);
-  });
-
-  return { abrir, fechar, aberta: () => estado !== "fechada" };
 }
