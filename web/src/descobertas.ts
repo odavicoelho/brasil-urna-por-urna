@@ -260,7 +260,10 @@ function cartoes(meta: Meta): Cartao[] {
 
 /** Carrossel da tela inicial: um cartão pequeno por descoberta. */
 export function carrossel(meta: Meta): string {
-  return `<div class="carrossel">${cartoes(meta)
+  const seta = (lado: "anterior" | "proximo", d: string) =>
+    `<button class="seta-carrossel vidro" type="button" data-seta="${lado}" aria-label="${lado === "anterior" ? "Anterior" : "Próximo"}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></button>`;
+  return `<div class="carrossel-caixa">${seta("anterior", "m15 5-7 7 7 7")}${seta("proximo", "m9 5 7 7-7 7")}<div class="carrossel">${cartoes(meta)
     .map(
       (c, i) => `<button class="mini-descoberta apertavel" type="button" data-descoberta="${c.id}" style="--tom:${TONS[i % TONS.length]}">
         <span class="kicker">${escapeHtml(c.rotulo)}</span>
@@ -268,9 +271,56 @@ export function carrossel(meta: Meta): string {
         <span class="curto">${c.curto}</span>
       </button>`,
     )
-    .join("")}</div>`;
+    .join("")}</div></div>`;
 }
 const TONS = ["#fdeceb", "#eef3fc", "#f6eefb", "#eaf6f1", "#fdf5e6", "#eef0f3"];
+
+/** Mouse: arrastar rola o carrossel (e não conta como clique); setas aparecem nas pontas. No toque, o
+ * navegador já rola sozinho. */
+export function ativarCarrossel(caixa: HTMLElement): void {
+  const trilho = caixa.querySelector<HTMLElement>(".carrossel")!;
+  const passo = () => (trilho.querySelector<HTMLElement>(".mini-descoberta")?.offsetWidth ?? 240) + 10;
+  const setas = () => {
+    caixa.classList.toggle("no-inicio", trilho.scrollLeft < 4);
+    caixa.classList.toggle("no-fim", trilho.scrollLeft + trilho.clientWidth > trilho.scrollWidth - 4);
+  };
+  trilho.addEventListener("scroll", setas, { passive: true });
+  setas();
+  caixa.addEventListener("click", (ev) => {
+    const s = (ev.target as HTMLElement).closest<HTMLElement>("[data-seta]");
+    if (!s) return;
+    ev.stopPropagation();
+    trilho.scrollBy({ left: s.dataset.seta === "proximo" ? passo() : -passo(), behavior: "smooth" });
+  });
+
+  let arraste: { x: number; scroll: number; moveu: boolean } | null = null;
+  trilho.addEventListener("pointerdown", (ev) => {
+    if (ev.pointerType !== "mouse" || ev.button !== 0) return;
+    arraste = { x: ev.clientX, scroll: trilho.scrollLeft, moveu: false };
+  });
+  window.addEventListener("pointermove", (ev) => {
+    if (!arraste) return;
+    const dx = ev.clientX - arraste.x;
+    if (!arraste.moveu && Math.abs(dx) < 5) return;
+    if (!arraste.moveu) {
+      arraste.moveu = true;
+      trilho.classList.add("arrastando");
+    }
+    trilho.scrollLeft = arraste.scroll - dx;
+  });
+  window.addEventListener("pointerup", () => {
+    if (!arraste) return;
+    const moveu = arraste.moveu;
+    arraste = null;
+    if (!moveu) return;
+    trilho.classList.remove("arrastando");
+    // encaixa no cartão mais próximo, como o dedo faria
+    const p = passo();
+    trilho.scrollTo({ left: Math.round(trilho.scrollLeft / p) * p, behavior: "smooth" });
+    // o clique que vem depois de um arraste não abre o cartão
+    trilho.addEventListener("click", (e) => (e.stopPropagation(), e.preventDefault()), { capture: true, once: true });
+  });
+}
 
 export function setupDescobertas(
   el: HTMLElement,

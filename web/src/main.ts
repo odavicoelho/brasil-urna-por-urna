@@ -12,7 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 
 import { contar, revelar } from "./anima";
-import { type Acao, setupDescobertas } from "./descobertas";
+import { type Acao, ativarCarrossel, setupDescobertas } from "./descobertas";
 import { type Camadas, loadCamadas, loadDetalhe, loadMeta, loadMunicipios, loadPontos, type Pontos } from "./data";
 import { escapeHtml, titleCase } from "./format";
 import { type Camada, camadas as listaCamadas, COR_A, COR_B, gradiente } from "./layers";
@@ -127,6 +127,7 @@ async function iniciar() {
   const [na, nb] = meta.segundo_turno;
 
   $("#vista-inicio").innerHTML = renderInicio(meta);
+  document.querySelectorAll<HTMLElement>("#vista-inicio .carrossel-caixa").forEach(ativarCarrossel);
   painel.ir("mini");
   contar($("#vista-inicio"));
   revelar($("#vista-inicio"));

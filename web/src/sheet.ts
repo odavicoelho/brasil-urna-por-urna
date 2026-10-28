@@ -109,12 +109,18 @@ export function criarPainel(el: HTMLElement, rolagem: HTMLElement, fimDoMini: ()
     ir(melhor);
   }
 
-  el.addEventListener("touchstart", (ev) => comecar(ev.touches[0].clientX, ev.touches[0].clientY), { passive: true });
+  // Arrastes que começam no carrossel são do carrossel (rolar para o lado), não da folha.
+  const doCarrossel = (alvo: EventTarget | null) => !!(alvo as HTMLElement | null)?.closest?.(".carrossel");
+  el.addEventListener(
+    "touchstart",
+    (ev) => !doCarrossel(ev.target) && comecar(ev.touches[0].clientX, ev.touches[0].clientY),
+    { passive: true },
+  );
   el.addEventListener("touchmove", (ev) => mover(ev.touches[0].clientX, ev.touches[0].clientY, ev, ev.target), { passive: false });
   el.addEventListener("touchend", soltar);
   el.addEventListener("touchcancel", soltar);
   // Mouse (testes e telas de toque pequenas com mouse)
-  el.addEventListener("mousedown", (ev) => !computador.matches && comecar(ev.clientX, ev.clientY));
+  el.addEventListener("mousedown", (ev) => !computador.matches && !doCarrossel(ev.target) && comecar(ev.clientX, ev.clientY));
   window.addEventListener("mousemove", (ev) => inicio && mover(ev.clientX, ev.clientY, ev, ev.target));
   window.addEventListener("mouseup", soltar);
 
