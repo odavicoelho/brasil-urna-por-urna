@@ -13,6 +13,7 @@ from urnaporurna import neighborhood as neighborhood_mod
 from urnaporurna import places as places_mod
 from urnaporurna import publish as publish_mod
 from urnaporurna import reconcile as reconcile_mod
+from urnaporurna import release as release_mod
 from urnaporurna import results as results_mod
 from urnaporurna.config import SOURCES
 
@@ -105,6 +106,13 @@ def entorno() -> None:
 def publish() -> None:
     """Gera os arquivos de dados do site em web/public/dados/."""
     for name, size in publish_mod.run().items():
+        typer.echo(f"  {name}: {size / 1e6:.1f} MB")
+
+
+@app.command()
+def release() -> None:
+    """Gera o pacote de dados abertos para o release no GitHub, em data/release/."""
+    for name, size in release_mod.run().items():
         typer.echo(f"  {name}: {size / 1e6:.1f} MB")
 
 
