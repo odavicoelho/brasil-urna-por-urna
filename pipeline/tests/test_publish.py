@@ -57,7 +57,8 @@ def test_camadas_arredonda_e_limita() -> None:
 
 
 def test_pct_byte() -> None:
-    assert [publish.pct_byte(v) for v in (None, -1, 0, 49.5, 50.5, 100, 130)] == [255, 0, 0, 50, 50, 100, 100]
+    # meio para cima: 49,5 vira 50 e 50,5 vira 51 (o round do Python daria 50 nos dois)
+    assert [publish.pct_byte(v) for v in (None, -1, 0, 49.5, 50.5, 100, 130)] == [255, 0, 0, 50, 51, 100, 100]
 
 
 def test_curva_z_aproxima_vizinhos() -> None:

@@ -1,6 +1,6 @@
 # Brasil Urna por Urna
 
-O resultado da eleição presidencial de 2026 em cada um dos 92.840 locais de votação do Brasil: a escola, o clube, a faculdade onde as pessoas votaram. Os dois turnos, o comparecimento, os brancos e nulos e o perfil de quem mora em volta de cada local, segundo o Censo 2022.
+O resultado da eleição presidencial de 2026 em cada um dos 92.851 locais de votação do Brasil: a escola, o clube, a faculdade onde as pessoas votaram. Os dois turnos, o comparecimento, os brancos e nulos e o perfil de quem mora em volta de cada local, segundo o Censo 2022.
 
 **Mapa:** https://brasil-urna-por-urna.pages.dev/ · **Dados abertos:** [release `dados-2026`](https://github.com/odavicoelho/brasil-urna-por-urna/releases)
 
@@ -80,7 +80,7 @@ Algumas escolhas e o porquê delas:
 Os números só são aceitos se baterem com o TSE. O comando `urna results` confere:
 
 - **votos de cada candidato em cada UF**, nos dois turnos, contra a totalização oficial: diferença zero;
-- **comparecimento, abstenções, válidos, brancos e nulos por UF**, contra a totalização oficial (o 2º turno entra assim que o TSE publicar esse arquivo);
+- **comparecimento, abstenções, válidos, brancos e nulos por UF**, contra a totalização oficial, nos dois turnos: diferença zero;
 - **cada uma das ~499 mil seções**: os dois arquivos do TSE concordam entre si e as contas fecham;
 - **toda seção tem um local de votação cadastrado.**
 
@@ -104,7 +104,7 @@ O [release `dados-2026`](https://github.com/odavicoelho/brasil-urna-por-urna/rel
 
 | arquivo | o que tem |
 |---|---|
-| `locais_votacao_2026` | os 94.332 locais com urna: endereço, coordenada, seções e de onde veio a coordenada |
+| `locais_votacao_2026` | os 94.343 locais com urna: endereço, coordenada, seções e de onde veio a coordenada |
 | `votos_por_local_2026` | votos de cada candidato em cada local, nos dois turnos |
 | `comparecimento_por_local_2026` | aptos, comparecimento, abstenções, válidos, brancos e nulos por local e turno |
 | `entorno_censo2022_por_local` | o perfil do entorno de cada local no mapa |

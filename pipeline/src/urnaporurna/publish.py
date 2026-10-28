@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import math
 import shutil
 import struct
 from array import array
@@ -115,8 +116,13 @@ def runoff_pair(con: duckdb.DuckDBPyConnection) -> tuple[int, int]:
     return nums[0], nums[1]
 
 
+def meio_para_cima(v: float) -> int:
+    """Arredonda 0,5 para cima (o round do Python leva 40,5 para 40, o par mais próximo)."""
+    return math.floor(v + 0.5)
+
+
 def pct_byte(v: float | None) -> int:
-    return 255 if v is None else min(100, max(0, round(v)))
+    return 255 if v is None else min(100, max(0, meio_para_cima(v)))
 
 
 def z_order(lon: float, lat: float) -> int:
@@ -141,7 +147,7 @@ def encode_layer(data: list[dict[str, Any]], columns: list[tuple[str, str]]) -> 
         elif name in PCT_COLUMNS:
             col = array("B", (pct_byte(d[name]) for d in data))
         elif name in ROUND_TO_10:
-            col = array(code, (min(round((d[name] or 0) / 10) * 10, 65_530) for d in data))
+            col = array(code, (min(meio_para_cima((d[name] or 0) / 10) * 10, 65_530) for d in data))
         else:
             col = array(code, (d[name] or 0 for d in data))
         assert col.itemsize == struct.calcsize(code), name
@@ -155,14 +161,19 @@ def map_layer(con: duckdb.DuckDBPyConnection, a: int, b: int) -> list[dict[str, 
     return rows(
         con,
         f"""
-        WITH r AS (
+        WITH p AS (
+            -- percentuais calculados direto das contagens (não dos valores já arredondados da base)
+            SELECT *, 100.0 * votos / sum(votos) OVER (PARTITION BY place_id, turno) AS pct
+            FROM resultados_local
+        ),
+        r AS (
             SELECT place_id,
                 arg_max(numero, votos) FILTER (turno = 1) AS v1,
-                max(pct_validos) FILTER (turno = 1) AS v1pct,
-                coalesce(max(pct_validos) FILTER (turno = 1 AND numero = {a}), 0) AS a1,
-                coalesce(max(pct_validos) FILTER (turno = 2 AND numero = {a}), 0) AS a2,
-                coalesce(max(pct_validos) FILTER (turno = 1 AND numero = {b}), 0) AS b1
-            FROM resultados_local GROUP BY place_id
+                max(pct) FILTER (turno = 1) AS v1pct,
+                coalesce(max(pct) FILTER (turno = 1 AND numero = {a}), 0) AS a1,
+                coalesce(max(pct) FILTER (turno = 2 AND numero = {a}), 0) AS a2,
+                coalesce(max(pct) FILTER (turno = 1 AND numero = {b}), 0) AS b1
+            FROM p GROUP BY place_id
         ),
         c AS (SELECT * FROM comparecimento_local)
         SELECT l.place_id AS id, l.cd_tse, l.zona, l.lat, l.lon,
@@ -171,7 +182,8 @@ def map_layer(con: duckdb.DuckDBPyConnection, a: int, b: int) -> list[dict[str, 
             r.v1, r.v1pct,
             CASE WHEN c1.validos > 0 THEN r.a1 END AS a1, CASE WHEN c2.validos > 0 THEN r.a2 END AS a2,
             CASE WHEN c1.validos > 0 THEN r.b1 END AS b1,
-            c1.pct_comparecimento AS comp1, c2.pct_comparecimento AS comp2,
+            100.0 * c1.comparecimento / nullif(c1.aptos, 0) AS comp1,
+            100.0 * c2.comparecimento / nullif(c2.aptos, 0) AS comp2,
             100.0 * (c1.brancos + c1.nulos) / nullif(c1.comparecimento, 0) AS bn1,
             100.0 * (c2.brancos + c2.nulos) / nullif(c2.comparecimento, 0) AS bn2
         FROM locais l

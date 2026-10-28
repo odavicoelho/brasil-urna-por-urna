@@ -69,14 +69,25 @@ def load_inputs(con: duckdb.DuckDBPyConnection) -> None:
 def build_places(con: duckdb.DuckDBPyConnection) -> None:
     """Agrega as seções em locais e converte as coordenadas (vírgula decimal).
 
-    Usa o turno mais recente em que o local aparece (alguns locais só existem no 2º turno).
-    Seção agregada: os eleitores dela votam na seção principal, às vezes em outro local; um local só
-    com seções agregadas não teve urna (`secoes_principais = 0`).
+    Usa o cadastro do turno mais recente em que o local aparece (alguns locais só existem no 2º turno).
+    Seção agregada: os eleitores dela votam na seção principal, às vezes em outro local. `secoes_principais`
+    é o maior número de seções principais do local em qualquer turno: um local que teve urna no 1º turno e
+    teve as seções agregadas a outro no 2º continua sendo um local com urna. Só com seções agregadas nos
+    dois turnos, o local não teve urna (`secoes_principais = 0`).
     """
     con.execute(
         """
         CREATE OR REPLACE TABLE places AS
-        WITH s AS (
+        WITH principais AS (
+            SELECT CD_MUNICIPIO, NR_ZONA, NR_LOCAL_VOTACAO, max(n) AS secoes_principais
+            FROM (
+                SELECT CD_MUNICIPIO, NR_ZONA, NR_LOCAL_VOTACAO, NR_TURNO,
+                    count(DISTINCT NR_SECAO) FILTER (DS_TIPO_SECAO_AGREGADA <> 'Agregada') AS n
+                FROM locais_raw GROUP BY ALL
+            )
+            GROUP BY ALL
+        ),
+        s AS (
             SELECT *,
                 try_cast(replace(NR_LATITUDE, ',', '.') AS DOUBLE) AS lat_tse,
                 try_cast(replace(NR_LONGITUDE, ',', '.') AS DOUBLE) AS lon_tse
@@ -98,9 +109,9 @@ def build_places(con: duckdb.DuckDBPyConnection) -> None:
             any_value(lat_tse) AS lat_tse,
             any_value(lon_tse) AS lon_tse,
             count(DISTINCT NR_SECAO) AS secoes,
-            count(DISTINCT NR_SECAO) FILTER (DS_TIPO_SECAO_AGREGADA <> 'Agregada') AS secoes_principais,
+            any_value(p.secoes_principais) AS secoes_principais,
             sum(QT_ELEITOR_SECAO::INT) AS eleitores
-        FROM s
+        FROM s JOIN principais p USING (CD_MUNICIPIO, NR_ZONA, NR_LOCAL_VOTACAO)
         GROUP BY CD_MUNICIPIO, NR_ZONA, NR_LOCAL_VOTACAO
         """
     )
