@@ -513,6 +513,7 @@ async function iniciar() {
     const destinos: Record<string, string> = {
       renda: "#/renda",
       exterior: "#/sobre/exterior",
+      fontes: "#/sobre/fontes",
       sobre: "#/sobre",
       descobertas: "#/descobertas",
     };

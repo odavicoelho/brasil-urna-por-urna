@@ -3,12 +3,29 @@
 
 import { revelar } from "./anima";
 import { loadExterior, type Meta } from "./data";
-import { escapeHtml, num, share, titleCase } from "./format";
+import { dataBR, escapeHtml, num, share, titleCase } from "./format";
 import { COR_A, COR_B } from "./layers";
 import { barraDupla, nomeCurto } from "./panel";
 
 const REPO = "https://github.com/odavicoelho/brasil-urna-por-urna";
 const AUTOR = "https://davicoelho-comercial.vercel.app/";
+
+// Nome legível de cada arquivo baixado pelo pipeline (chaves de meta.fontes).
+const NOMES_FONTES: Record<string, string> = {
+  votos_secao: "Votos por seção eleitoral",
+  detalhe_secao: "Comparecimento, brancos e nulos por seção",
+  locais: "Locais de votação (endereços e coordenadas)",
+  candidatos: "Candidatos",
+  totais_votos: "Totais oficiais por candidato",
+  totais_detalhe: "Totais oficiais de comparecimento",
+  municipios_ibge: "Contorno dos municípios (malha 2025)",
+  setores_ibge: "Contorno dos setores censitários (Censo 2022)",
+  censo_basico: "Censo 2022: população e domicílios",
+  censo_demografia: "Censo 2022: idade",
+  censo_alfabetizacao: "Censo 2022: alfabetização",
+  censo_cor_raca: "Censo 2022: cor ou raça",
+  censo_renda: "Censo 2022: renda do responsável",
+};
 
 const NOMES_CONFERENCIA: Record<string, string> = {
   "votos por candidato x UF (oficial)": "Votos de cada candidato em cada UF = total oficial do TSE",
@@ -39,6 +56,21 @@ export function setupSobre(el: HTMLElement, meta: Meta): (ancora?: string) => vo
           <span class="secundario">${c.turno}º turno${c.comparados ? ` · ${num(c.comparados)} itens` : ""}</span></td>
           <td class="n">${status}</td></tr>`;
       })
+      .join("");
+  }
+
+  function fontes(): string {
+    return Object.entries(meta.fontes)
+      .map(([k, f]) => ({ k, f, orgao: new URL(f.url).hostname.endsWith("tse.jus.br") ? "TSE" : "IBGE" }))
+      .sort((a, b) => {
+        const t = (x: string | null) => (x ? new Date(x).getTime() : 0);
+        return b.orgao.localeCompare(a.orgao) || t(b.f.atualizado_em) - t(a.f.atualizado_em); // TSE primeiro, mais novo no topo
+      })
+      .map(
+        ({ k, f, orgao }) => `<tr><td><a href="${escapeHtml(f.url)}" target="_blank" rel="noopener">${escapeHtml(NOMES_FONTES[k] ?? k)}</a><br />
+          <span class="secundario">${orgao}</span></td>
+          <td class="n">${f.atualizado_em ? dataBR(new Date(f.atualizado_em)) : "—"}</td></tr>`,
+      )
       .join("");
   }
 
@@ -114,6 +146,15 @@ export function setupSobre(el: HTMLElement, meta: Meta): (ancora?: string) => vo
         <p>As seções de cada local foram somadas. O perfil do entorno junta os setores censitários num raio de 500 m de
           cada local, pesando cada setor pela parte da área dele que cai dentro do círculo. Na zona rural, onde 500 m
           pegariam quase ninguém, entra o setor onde o local fica.</p>
+      </div>
+
+      <p class="titulo-secao" id="sobre-ancora-fontes">Data de cada arquivo</p>
+      <div class="cartao">
+        <p class="nota" style="margin:0 0 6px">Data de publicação informada pelo próprio servidor do TSE e do IBGE quando
+          o arquivo foi baixado. Se uma instituição atualizar um arquivo depois disso, a data dela vai ser mais recente
+          que a daqui.</p>
+        <table class="tabela"><tbody>${fontes()}</tbody></table>
+        <p class="nota">Mapa gerado em ${dataBR(new Date(meta.gerado_em))}.</p>
       </div>
 
       <p class="titulo-secao">O que ficou fora do mapa</p>

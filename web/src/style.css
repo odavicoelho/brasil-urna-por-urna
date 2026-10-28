@@ -473,8 +473,27 @@ body.com-modal #app {
   text-align: center;
 }
 
-.rodape a {
+.rodape a,
+.link-rodape {
   color: inherit;
+}
+
+.rodape .data {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tabela a {
+  color: var(--rotulo);
+  text-decoration-color: var(--rotulo-3);
+  text-underline-offset: 2px;
+}
+
+.link-rodape {
+  font-size: 12px;
+  text-decoration: underline;
+  text-decoration-color: var(--rotulo-3);
+  text-underline-offset: 2px;
 }
 
 /* ---------- Placar (Brasil e cada local) ---------- */

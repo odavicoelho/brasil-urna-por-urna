@@ -2,7 +2,7 @@
 // local de votação (placar do 2º turno no topo, depois o entorno e os dois turnos completos).
 
 import type { Candidato, Entorno, FaixaRenda, Local, Meta, MunicipioInfo, Turno } from "./data";
-import { brl, escapeHtml, num, pct, share, titleCase } from "./format";
+import { brl, dataBR, datasDasFontes, escapeHtml, num, pct, share, titleCase } from "./format";
 import { carrossel } from "./descobertas";
 import { COR_A, COR_B } from "./layers";
 
@@ -62,6 +62,7 @@ export function placar(meta: Meta, va: number, vb: number, compacto = false): st
 // ---------- Tela inicial ----------
 
 export function renderInicio(meta: Meta): string {
+  const datas = datasDasFontes(meta.fontes);
   const [na, nb] = meta.segundo_turno;
   const br = meta.totais.find((x) => x.turno === 2)!;
   const f = meta.faixas_renda.BR;
@@ -109,6 +110,9 @@ export function renderInicio(meta: Meta): string {
         <span class="texto">Código aberto<small>Refaça tudo do zero no GitHub</small></span>${ICONE.chevron}</a></li>
     </ul>
     <p class="rodape">Dados oficiais do TSE e do IBGE (Censo 2022).<br />
+      ${datas.tse ? `Data de publicação dos dados nas plataformas do TSE: <b class="data">${dataBR(datas.tse)}</b><br />` : ""}
+      ${datas.ibge ? `Data de publicação dos dados nas plataformas do IBGE: <b class="data">${dataBR(datas.ibge)}</b><br />` : ""}
+      <button type="button" class="link-rodape" data-abrir="fontes">Ver a data de cada arquivo</button><br />
       Feito por <a href="https://davicoelho-comercial.vercel.app/" target="_blank" rel="noopener">Davi Coelho</a>.</p>`;
 }
 

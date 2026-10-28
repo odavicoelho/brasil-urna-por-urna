@@ -42,3 +42,17 @@ export const normalize = (s: string) =>
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase();
+
+/** Data no fuso de Brasília: "27/10/2026". */
+export const dataBR = (d: Date) => d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
+/** A publicação mais recente entre os arquivos de cada instituição (data informada pelo servidor dela). */
+export function datasDasFontes(fontes: Record<string, { url: string; atualizado_em: string | null }>) {
+  const maisRecente = (dominio: string) => {
+    const datas = Object.values(fontes)
+      .filter((f) => f.atualizado_em && new URL(f.url).hostname.endsWith(dominio))
+      .map((f) => new Date(f.atualizado_em!).getTime());
+    return datas.length ? new Date(Math.max(...datas)) : null;
+  };
+  return { tse: maisRecente("tse.jus.br"), ibge: maisRecente("ibge.gov.br") };
+}
