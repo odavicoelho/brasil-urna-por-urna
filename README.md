@@ -2,7 +2,7 @@
 
 O resultado da eleição presidencial de 2026, nos dois turnos, em cada um dos ~95 mil locais de votação do país, com o perfil do entorno de cada local segundo o Censo 2022 do IBGE.
 
-Site: https://odavicoelho.github.io/brasil-urna-por-urna/
+Site: https://brasil-urna-por-urna.pages.dev/
 
 ## O que o mapa mostra
 
@@ -45,13 +45,14 @@ O site (Vite + TypeScript + MapLibre, mapa de fundo do OpenFreeMap) fica em `web
 ```bash
 cd web
 npm ci
-npm run dev                      # http://localhost:5173/brasil-urna-por-urna/
-../scripts/publicar-site.sh      # build + publicação no branch gh-pages (GitHub Pages)
+npm run dev                      # http://localhost:5173/
+npx wrangler login               # só na primeira vez: autoriza a conta do Cloudflare
+../scripts/publicar-site.sh      # build + publicação no Cloudflare Pages
 ```
 
 O site foi feito para abrir rápido no celular e mostra só o Brasil: de longe, o mapa de fundo é o contorno do país e dos estados (`brasil.json`, ~50 KB), sem baixar nada de outros países; de perto entram as ruas do OpenFreeMap, com uma máscara cobrindo os vizinhos. O mapa pinta com um arquivo binário de ~450 KB (posição e 2º turno de cada local), o resto das camadas chega logo depois em outro de ~800 KB, e o detalhe de cada local só é baixado quando alguém toca nele (no máximo ~40 KB; as cidades grandes são divididas por zona eleitoral). O formato está descrito em `pipeline/src/urnaporurna/publish.py`.
 
-Os dados do site (~80 MB no total) não vão para o `main`: ficam só no branch `gh-pages`, trocado inteiro a cada publicação.
+O site fica no Cloudflare Pages, que serve arquivos estáticos sem limite de tráfego no plano gratuito. Os dados do site (~80 MB no total) não vão para o `main`: saem do pipeline e vão direto na publicação. O endereço antigo no GitHub Pages só redireciona para o novo (`scripts/redirecionar-github.sh`).
 
 ## Conferência
 

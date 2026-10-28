@@ -1,0 +1,14 @@
+# Cabeçalhos do Cloudflare Pages.
+# Código e estilos têm o conteúdo no nome do arquivo (index-AbC123.js): podem ficar um ano no navegador.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Dados e worker do mapa: uma hora no navegador; depois o navegador confere se mudou.
+/dados/*
+  Cache-Control: public, max-age=3600
+/maplibre/*
+  Cache-Control: public, max-age=86400
+
+# Os .bin já vão comprimidos com gzip pelo pipeline; o site descomprime no navegador.
+/dados/*.bin
+  Content-Type: application/octet-stream
