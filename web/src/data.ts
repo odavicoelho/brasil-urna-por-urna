@@ -44,6 +44,41 @@ export interface Conferencia {
   detalhe: string;
 }
 
+export interface Descobertas {
+  virada: {
+    turno1: { a: number; b: number; outros: number };
+    turno2: { a: number; b: number };
+    pct_locais: number;
+    pct_eleitores: number;
+    locais_b_perdeu_votos: number;
+    ufs: { uf: string; m1: number; m2: number }[];
+    ufs_para_a: number;
+    total_ufs: number;
+  };
+  entorno: { id: string; rotulo: string; baixo: string; alto: string; serie: number[] }[];
+  capitais: { cd: string; municipio: string; uf: string; a_mais_pobres: number; a_mais_ricos: number; a_cidade: number }[];
+  cidades_partidas: {
+    cd: string;
+    municipio: string;
+    uf: string;
+    locais: number;
+    pa_min: number;
+    pa_max: number;
+    nome_min: string;
+    nome_max: string;
+    id_min: string;
+    id_max: string;
+  }[];
+  direita: { dir_min: number; dir_max: number; b_do_crescimento: number }[];
+  curiosidades: {
+    maior_local: { id: string; nome: string; municipio: string; uf: string; aptos: number; pa: number };
+    exterior: { comparecimento: number; a: number };
+    locais_so_a: number;
+    locais_so_b: number;
+    empates: number;
+  };
+}
+
 export interface Meta {
   eleicao: string;
   gerado_em: string;
@@ -58,6 +93,7 @@ export interface Meta {
     locais_no_mapa: number;
   };
   faixas_renda: Record<string, FaixaRenda[]>;
+  descobertas: Descobertas;
   conferencia: { ok: boolean; conferencias: Conferencia[] };
   fontes: Record<string, { url: string; atualizado_em: string | null }>;
 }

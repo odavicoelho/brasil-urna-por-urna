@@ -28,7 +28,7 @@ from typing import Any
 
 import duckdb
 
-from urnaporurna import contorno
+from urnaporurna import contorno, descobertas
 from urnaporurna.config import MANIFEST, ROOT, SILVER
 
 OUT = ROOT / "web" / "public" / "dados"
@@ -392,6 +392,11 @@ def run() -> dict[str, int]:
     sizes.update(contorno.run(OUT))
     sizes["meta.json"] = dump(
         OUT / "meta.json",
-        {**meta(con, len(layer)), "segundo_turno": [a, b], "faixas_renda": income_bands(con, a, b)},
+        {
+            **meta(con, len(layer)),
+            "segundo_turno": [a, b],
+            "faixas_renda": income_bands(con, a, b),
+            "descobertas": descobertas.run(con, a, b),
+        },
     )
     return sizes

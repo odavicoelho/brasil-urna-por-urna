@@ -788,6 +788,401 @@ details[open] > summary + * {
   animation: brilho 1.2s linear infinite;
 }
 
+/* ---------- Descobertas ---------- */
+
+.titulo-secao.com-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.titulo-secao.com-link button {
+  font-size: 15px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--rotulo);
+}
+
+.carrossel {
+  display: flex;
+  gap: 10px;
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 16px;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.carrossel::-webkit-scrollbar {
+  display: none;
+}
+
+.mini-descoberta {
+  flex: none;
+  width: 72%;
+  max-width: 260px;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, var(--tom) 0%, #ffffff 85%);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  text-align: left;
+  scroll-snap-align: start;
+}
+
+.mini-descoberta .kicker {
+  margin: 0;
+}
+
+.mini-descoberta strong {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-descoberta .curto {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--rotulo-2);
+}
+
+.kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--rotulo-2);
+}
+
+.descoberta {
+  margin-top: 14px;
+  padding: 18px 16px 16px;
+  scroll-margin-top: 12px;
+}
+
+.descoberta h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.22;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+}
+
+.descoberta .texto {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.descoberta .grafico {
+  margin-top: 16px;
+}
+
+.descoberta .acoes {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.descoberta .acoes .botao-grande {
+  margin-top: 0;
+  flex: 1;
+  height: 46px;
+  font-size: 16px;
+}
+
+.secundario-botao {
+  flex: none !important;
+  width: 46px;
+  background: var(--preenchimento) !important;
+  color: var(--rotulo) !important;
+}
+
+.grafico-titulo {
+  margin: 16px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rotulo-2);
+}
+
+.turno-linha {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--rotulo-2);
+}
+
+.barra-turno {
+  display: flex;
+  gap: 2px;
+  height: 26px;
+}
+
+.barra-turno div {
+  display: flex;
+  align-items: center;
+  padding: 0 7px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.barra-turno div:last-child {
+  justify-content: flex-end;
+}
+
+.colunas-uf {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 74px;
+}
+
+.colunas-uf div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  min-width: 0;
+}
+
+.colunas-uf i {
+  width: 100%;
+  max-width: 12px;
+  border-radius: 3px 3px 1px 1px;
+}
+
+.colunas-uf span {
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--rotulo-2);
+  letter-spacing: -0.02em;
+}
+
+.halteres {
+  display: grid;
+  gap: 12px;
+}
+
+.halteres.compactos {
+  gap: 2px;
+}
+
+.halter-rotulo {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.halter-rotulo strong {
+  font-weight: 600;
+}
+
+.halter-rotulo span {
+  color: var(--rotulo-2);
+}
+
+.halter-trilho,
+.trilho-cidade {
+  position: relative;
+  height: 18px;
+  margin: 2px 7px;
+}
+
+.halter-trilho::before,
+.trilho-cidade::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--preenchimento);
+}
+
+.halter-trilho .meio {
+  position: absolute;
+  top: 2px;
+  width: 1px;
+  height: 14px;
+  background: var(--rotulo-3);
+}
+
+.halter-trilho .linha {
+  position: absolute;
+  top: 7px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rotulo-3);
+}
+
+.halter-trilho b {
+  position: absolute;
+  top: 3px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--a);
+}
+
+.halter-trilho b.vazio {
+  background: #fff;
+  border: 2.5px solid var(--a);
+}
+
+.halter-pontas {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--rotulo-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.halter-escala {
+  position: relative;
+  height: 14px;
+  margin: 2px 7px 0;
+  font-size: 11px;
+  color: var(--rotulo-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.halter-escala span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.halter-escala span:first-child {
+  left: 0;
+  transform: none;
+}
+
+.halter-escala span:last-child {
+  right: 0;
+  transform: none;
+}
+
+.linha-cap {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  align-items: center;
+}
+
+.linha-cap .halter-rotulo strong {
+  font-weight: 500;
+  color: var(--rotulo-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.linha-cap.destaque .halter-rotulo strong {
+  color: var(--rotulo);
+  font-weight: 700;
+}
+
+.linha-cap.destaque .halter-trilho .linha {
+  background: var(--a);
+}
+
+.chave-halter span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chave-halter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--rotulo-2);
+}
+
+.faixas-cidade {
+  display: grid;
+  gap: 10px;
+}
+
+.trilho-cidade i {
+  position: absolute;
+  top: 4px;
+  height: 10px;
+  border-radius: 5px;
+}
+
+.barras-dir {
+  display: grid;
+  gap: 8px;
+}
+
+.barra-dir {
+  display: grid;
+  grid-template-columns: 104px 1fr 76px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--rotulo-2);
+}
+
+.barra-dir .barra-dupla {
+  margin: 0;
+}
+
+.barra-dir b {
+  white-space: nowrap;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--rotulo);
+}
+
+.fatos {
+  display: grid;
+  gap: 14px;
+}
+
+.fatos div {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.fatos strong {
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.fatos span {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--rotulo-2);
+}
+
 /* ---------- Busca ---------- */
 
 #busca-resultados {

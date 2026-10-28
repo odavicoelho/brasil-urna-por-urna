@@ -12,6 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 
 import { contar, revelar } from "./anima";
+import { type Acao, setupDescobertas } from "./descobertas";
 import { type Camadas, loadCamadas, loadDetalhe, loadMeta, loadMunicipios, loadPontos, type Pontos } from "./data";
 import { escapeHtml, titleCase } from "./format";
 import { type Camada, camadas as listaCamadas, COR_A, COR_B, gradiente } from "./layers";
@@ -406,6 +407,30 @@ async function iniciar() {
   }
   $("#botao-perto").addEventListener("click", pertoDeMim);
 
+  /** Enquadra todos os locais de um município (índice em municipios.json). */
+  async function verMunicipio(idx: number) {
+    if (localAberto != null) fecharLocal();
+    mostrarVista("inicio", true);
+    painel.ir("mini");
+    const cam = await camadasProntas();
+    let [x0, y0, x1, y1] = [180, 90, -180, -90];
+    for (let i = 0; i < pontos.n; i++) {
+      if (cam.mun[i] !== idx) continue;
+      x0 = Math.min(x0, pontos.lon[i]);
+      x1 = Math.max(x1, pontos.lon[i]);
+      y0 = Math.min(y0, pontos.lat[i]);
+      y1 = Math.max(y1, pontos.lat[i]);
+    }
+    if (x0 <= x1)
+      map.fitBounds(
+        [
+          [x0, y0],
+          [x1, y1],
+        ],
+        { padding: margens("mini"), maxZoom: 14.5, duration: 1600 },
+      );
+  }
+
   // ---------- Busca ----------
   let vistaAntesDaBusca: Vista = "inicio";
   setupSearch({
@@ -422,26 +447,7 @@ async function iniciar() {
     },
     aoEscolher: async (e) => {
       if (e.local != null) return abrirLocal(e.local, { voar: true });
-      if (localAberto != null) fecharLocal();
-      mostrarVista("inicio", true);
-      painel.ir("mini");
-      const cam = await camadasProntas();
-      let [x0, y0, x1, y1] = [180, 90, -180, -90];
-      for (let i = 0; i < pontos.n; i++) {
-        if (cam.mun[i] !== e.municipio) continue;
-        x0 = Math.min(x0, pontos.lon[i]);
-        x1 = Math.max(x1, pontos.lon[i]);
-        y0 = Math.min(y0, pontos.lat[i]);
-        y1 = Math.max(y1, pontos.lat[i]);
-      }
-      if (x0 <= x1)
-        map.fitBounds(
-          [
-            [x0, y0],
-            [x1, y1],
-          ],
-          { padding: margens("mini"), maxZoom: 14.5, duration: 1600 },
-        );
+      await verMunicipio(e.municipio!);
     },
     pertoDeMim,
   });
@@ -458,12 +464,53 @@ async function iniciar() {
     compartilhar: (t, x) => void compartilhar(t, x),
   });
   const mostrarSobre = setupSobre(modalSobre.corpo, meta);
+  const modalDescobertas = criarModal($("#modal-descobertas"), "Descobertas", sair);
+
+  /** "Ver no mapa" das descobertas: troca a camada, enquadra uma cidade ou abre um local. */
+  async function irPara(a: Acao) {
+    if (a.rota) {
+      history.replaceState({ app: true }, "", a.rota);
+      return void rota();
+    }
+    if (a.local) {
+      history.replaceState({ app: true }, "", `#/local/${a.local}`);
+      return void rota();
+    }
+    fecharModais();
+    history.replaceState(null, "", "#/");
+    if (a.camada) {
+      const c = lista.find((x) => x.id === a.camada);
+      if (c) {
+        if (c.completa) await camadasProntas();
+        escolherCamada(c);
+      }
+    }
+    const idx = a.municipio ? municipios.findIndex((m) => m[0] === a.municipio) : -1;
+    if (idx >= 0) await verMunicipio(idx);
+    else {
+      if (localAberto != null) fecharLocal(false);
+      painel.ir("mini");
+      map.fitBounds(BRASIL, { padding: margens("mini"), duration: 1400 });
+    }
+  }
+  const mostrarDescobertas = setupDescobertas(modalDescobertas.corpo, {
+    meta,
+    irPara: (a) => void irPara(a),
+    compartilhar: (t, x, url) => void compartilhar(t, x, url),
+  });
 
   $("#vista-inicio").addEventListener("click", (ev) => {
-    const b = (ev.target as HTMLElement).closest<HTMLElement>("[data-abrir]");
-    if (!b) return;
-    const destino = b.dataset.abrir;
-    history.pushState({ app: true }, "", destino === "renda" ? "#/renda" : destino === "exterior" ? "#/sobre/exterior" : "#/sobre");
+    const alvo = ev.target as HTMLElement;
+    const d = alvo.closest<HTMLElement>("[data-descoberta]");
+    const b = alvo.closest<HTMLElement>("[data-abrir]");
+    if (!d && !b) return;
+    const destinos: Record<string, string> = {
+      renda: "#/renda",
+      exterior: "#/sobre/exterior",
+      sobre: "#/sobre",
+      descobertas: "#/descobertas",
+    };
+    history.pushState({ app: true }, "", d ? `#/descobertas/${d.dataset.descoberta}` : destinos[b!.dataset.abrir!]);
     void rota();
   });
 
@@ -473,6 +520,10 @@ async function iniciar() {
     if (h === "#/renda") {
       modalRenda.abrir();
       return mostrarRenda();
+    }
+    if (h.startsWith("#/descobertas")) {
+      modalDescobertas.abrir();
+      return mostrarDescobertas(h.split("/")[2]);
     }
     if (h.startsWith("#/sobre")) {
       modalSobre.abrir();

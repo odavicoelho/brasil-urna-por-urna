@@ -3,6 +3,7 @@
 
 import type { Candidato, Entorno, FaixaRenda, Local, Meta, MunicipioInfo, Turno } from "./data";
 import { brl, escapeHtml, num, pct, share, titleCase } from "./format";
+import { carrossel } from "./descobertas";
 import { COR_A, COR_B } from "./layers";
 
 const CINZA = "#8e8e93";
@@ -84,7 +85,10 @@ export function renderInicio(meta: Meta): string {
       <div class="placar-cabeca"><span>Resultado no Brasil</span><span>2º turno</span></div>
       ${placar(meta, br.votos[na] ?? 0, br.votos[nb] ?? 0, true)}
     </div>
-    <p class="titulo-secao">Descubra</p>
+    <div class="titulo-secao com-link"><span>Descobertas</span>
+      <button type="button" data-abrir="descobertas">Ver todas</button></div>
+    ${carrossel(meta)}
+    <p class="titulo-secao">Explore</p>
     <button class="cartao cartao-link apertavel" type="button" data-abrir="renda">
       <h3>Renda e voto</h3>
       <p class="nota" style="margin-top:4px;font-size:15px;color:var(--rotulo)">Onde o entorno é mais pobre,
